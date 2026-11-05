@@ -9,6 +9,8 @@ from .schemas import SCHEMAS
 from .security import InvalidOutput, PublicError, local_check
 
 log = logging.getLogger(__name__)
+# Output budget per call. Reasoning models spend it before the answer: 6000 left some answers empty.
+MAX_OUTPUT_TOKENS = 16000
 
 
 def provider_error(response):
@@ -161,6 +163,7 @@ def fake_response(request, task):
             "agent": a,
             "stimme": "tolerieren",
             "begruendung": "Evaluierung und begrenzter Umfang sind tragbar.",
+            "verletzte_rote_linie": None,
         },
         "statement_pruefen": {
             "agent": a,
@@ -218,7 +221,7 @@ def fake_response(request, task):
             "entscheidungsfindung": "Schrittweise Evaluierung verbindet die Ziele.",
             "offene_konflikte": [],
             "auffaelligkeiten": ["Synthetischer Demolauf ohne echte LLM-Aufrufe."],
-            "statistik": {"runden": r},
+            "statistik": {"runden": r, "rueckweisungen": 0, "enthaltungen": 0, "gruppenwechsel": 0},
         },
         "sicherheit": {"institutionell": True, "keine_personen": True, "keine_vertraulichen_statuten": True},
     }

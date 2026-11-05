@@ -13,22 +13,41 @@ from flask import (
     redirect,
     render_template,
     request,
+    send_from_directory,
     session,
     url_for,
 )
 from flask_login import login_required, login_user, logout_user
 from pydantic import ValidationError
-from sqlalchemy import func, select
+from sqlalchemy import String, cast, func, select
 from sqlalchemy.orm import sessionmaker
 from werkzeug.security import check_password_hash
 
-from .llm import Gateway, parse_response
+from .connections import catalog, check_assignments, preflight
+from .llm import MAX_OUTPUT_TOKENS, Gateway, parse_response
 from .models import Actor, Call, Command, Endpoint, Event, Job, Prompt, Setting, Simulation, User, db, now
 from .security import PublicError, cipher, local_check
 from .services import PHASE_LABELS, ROLES, create_simulation, enqueue, event, import_actors, latest_prompts, settings
-from .stakeholders import DEFAULT_SELECTION
+from .stakeholders import DEFAULT_SELECTION, has_icon, icon_directory, initials
 
 web = Blueprint("web", __name__)
+MIN_OUTPUT_TOKENS, MAX_OUTPUT_LIMIT = 256, 1000000
+
+
+@web.app_template_global()
+def icon_url(actor_id):
+    return url_for("web.actor_icon", actor_id=actor_id) if has_icon(actor_id) else None
+
+
+web.add_app_template_global(initials)
+
+
+@web.get("/icons/<actor_id>.png")
+@login_required
+def actor_icon(actor_id):
+    if not has_icon(actor_id):
+        abort(404)
+    return send_from_directory(icon_directory(), f"{actor_id}.png", max_age=86400)
 
 
 def body():
@@ -207,6 +226,24 @@ def endpoint_delete(endpoint_id):
     return "", 204
 
 
+@web.get("/api/admin/connections/check")
+@login_required
+def connections_check():
+    if current_app.config["LLM_MODE"] == "fake":
+        return jsonify(mode="fake", items=[])
+    return jsonify(mode="openrouter", items=check_assignments(db.session, current_app, settings(db.session)))
+
+
+@web.get("/api/admin/connections/models")
+@login_required
+def connections_models():
+    if current_app.config["LLM_MODE"] == "fake":
+        return jsonify(ids=[])
+    endpoint = db.session.get(Endpoint, settings(db.session)["endpoint_id"] or "")
+    models = catalog(endpoint.base_url if endpoint else "https://openrouter.ai/api/v1")
+    return jsonify(ids=sorted(models) if models else [])
+
+
 @web.post("/api/admin/settings")
 @login_required
 def settings_save():
@@ -229,9 +266,24 @@ def settings_save():
     blocked = data.get("blocked_names", [])
     if not isinstance(blocked, list) or not all(isinstance(x, str) for x in blocked):
         raise PublicError("Die Sperrliste muss eine Liste von Zeichenketten sein.")
+    try:
+        eur_per_usd = float(data.get("eur_per_usd", settings(db.session)["eur_per_usd"]))
+    except (TypeError, ValueError):
+        raise PublicError("Der Wechselkurs muss eine Zahl sein.") from None
+    if not 0.1 <= eur_per_usd <= 10:
+        raise PublicError("Der Wechselkurs muss zwischen 0,1 und 10 liegen.")
+    max_tokens = {**settings(db.session)["max_tokens"], **(data.get("max_tokens") or {})}
+    try:
+        max_tokens = {role: int(max_tokens[role]) for role in ROLES}
+    except (TypeError, ValueError):
+        raise PublicError("Maximale Output-Tokens müssen ganze Zahlen sein.") from None
+    if not all(MIN_OUTPUT_TOKENS <= value <= MAX_OUTPUT_LIMIT for value in max_tokens.values()):
+        raise PublicError(f"Maximale Output-Tokens müssen zwischen {MIN_OUTPUT_TOKENS} und {MAX_OUTPUT_LIMIT} liegen.")
     row.value = {
         "endpoint_id": data.get("endpoint_id") or None,
+        "max_tokens": max_tokens,
         "parallelism": parallelism,
+        "eur_per_usd": eur_per_usd,
         "roles": roles,
         "blocked_names": blocked,
     }
@@ -247,6 +299,8 @@ def endpoint_test(endpoint_id):
         abort(404)
     if not endpoint.enabled:
         raise PublicError("Verbindung ist deaktiviert.")
+    if current_app.config["LLM_MODE"] == "fake":
+        return jsonify(ok=True, text="Offline-Demo: Es wurde kein Anbieter aufgerufen, die Verbindung ist ungeprüft.")
     # A deliberate administrative probe; simulation calls only execute in the worker.
     config = {**endpoint_data(endpoint), "secret": endpoint.secret, "timeout": min(endpoint.timeout, 30), "attempts": 1}
     request_data = {
@@ -254,7 +308,7 @@ def endpoint_test(endpoint_id):
             {"role": "system", "content": "Prüfe den neutralen Text im Schema. Keine Personen."},
             {"role": "user", "content": json.dumps({"pruefling": "Institutionelle Verhandlung."})},
         ],
-        "max_tokens": 300,
+        "max_tokens": MAX_OUTPUT_TOKENS,
     }
     response = Gateway(current_app).complete(config, request_data, "sicherheit")
     parse_response(response, "sicherheit", [])
@@ -311,7 +365,10 @@ def prompts_save():
 @web.post("/api/simulations")
 @login_required
 def simulations_create():
-    sim = create_simulation(db.session, body(), current_app)
+    data = body()
+    if isinstance(data.get("actors"), list):
+        preflight(db.session, current_app, settings(db.session), [str(a) for a in data["actors"]])
+    sim = create_simulation(db.session, data, current_app)
     db.session.commit()
     return jsonify(id=sim.id, url=url_for("web.simulation_page", sim_id=sim.id)), 201
 
@@ -334,7 +391,12 @@ def simulations_list():
 def simulation_data(sim):
     events = db.session.scalars(
         select(Event)
-        .where(Event.simulation_id == sim.id, Event.run == sim.run, Event.visibility == "public")
+        .where(
+            Event.simulation_id == sim.id,
+            Event.run == sim.run,
+            Event.visibility == "public",
+            Event.kind != "activity",
+        )
         .order_by(Event.id)
     ).all()
     watcher = [e for e in events if e.kind == "watcher"]
@@ -377,9 +439,12 @@ def simulation_data(sim):
         "groups": sim.state["groups"],
         "votes": {k: v["stimme"] if v else "enthaltung" for k, v in sim.state.get("votes", {}).items()},
         "proposal": sim.state.get("proposal"),
+        "outcome": sim.state.get("outcome"),
         "actors": {
             k: {
                 "name": a["name"] if sim.state.get("verified") else "Institution wird geprüft",
+                "icon": icon_url(k) if sim.state.get("verified") else None,
+                "monogram": initials(a["name"]) if sim.state.get("verified") else "",
                 "demo": a.get("demo", False),
                 "modeled": a.get("modeled", True),
             }
@@ -612,19 +677,27 @@ def export(sim_id):
 @login_required
 def metrics_get(sim_id):
     sim = sim_or_404(sim_id)
-    calls = db.session.scalars(select(Call).where(Call.simulation_id == sim.id, Call.run == sim.run)).all()
-    usage = {}
-    known_cost, cost_calls = 0.0, 0
-    for c in calls:
-        role = c.role
-        row = usage.setdefault(role, {"calls": 0, "tokens": 0, "duration": 0})
-        row["calls"] += 1
-        row["tokens"] += c.usage.get(
-            "total_tokens", c.usage.get("prompt_tokens", 0) + c.usage.get("completion_tokens", 0)
+    calls = db.session.execute(
+        select(Call.role, Call.usage, Call.duration).where(Call.simulation_id == sim.id, Call.run == sim.run)
+    ).all()
+    largest = db.session.scalar(
+        select(func.max(func.length(cast(Call.request, String)))).where(
+            Call.simulation_id == sim.id, Call.run == sim.run
         )
-        row["duration"] += c.duration
-        cost = c.usage.get("cost")
+    )
+    rate = settings(db.session)["eur_per_usd"]
+    roles = {}
+    known_cost, cost_calls = 0.0, 0
+    for role, call_usage, duration in calls:
+        row = roles.setdefault(role, {"calls": 0, "tokens": 0, "duration": 0, "cost_eur": 0.0})
+        row["calls"] += 1
+        row["tokens"] += call_usage.get(
+            "total_tokens", call_usage.get("prompt_tokens", 0) + call_usage.get("completion_tokens", 0)
+        )
+        row["duration"] += duration
+        cost = call_usage.get("cost")
         if isinstance(cost, (float, int)):
+            row["cost_eur"] += cost * rate
             known_cost += cost
             cost_calls += 1
     reviews = db.session.scalars(
@@ -633,11 +706,17 @@ def metrics_get(sim_id):
         )
     ).all()
     return jsonify(
-        roles=usage,
-        known_cost_usd=known_cost if cost_calls else None,
+        roles=roles,
+        known_cost_eur=known_cost * rate if cost_calls else None,
+        eur_per_usd=rate,
         cost_calls=cost_calls,
         calls=len(calls),
-        rejections=sum(e.kind == "review" and e.payload.get("pruefung", {}).get("bewertung") == 0 for e in reviews),
+        largest_context=largest or 0,
+        context_limit=current_app.config["MAX_CONTEXT_CHARS"],
+        rejections=sum(
+            e.kind == "review" and e.payload.get("zurueckgewiesen", e.payload.get("pruefung", {}).get("bewertung") == 0)
+            for e in reviews
+        ),
         abstentions=sum(e.kind == "abstention" for e in reviews),
     )
 

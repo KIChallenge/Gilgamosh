@@ -1,4 +1,5 @@
 import copy
+import hashlib
 import secrets
 from pathlib import Path
 
@@ -9,7 +10,23 @@ from .schemas import ActorInput
 from .security import PublicError, local_check
 
 ROLES = ("agent", "orchestrator", "moderator", "watcher")
-DEFAULTS = {"endpoint_id": None, "parallelism": 4, "roles": {}, "blocked_names": []}
+# ECB reference rate of 2026-11-05 (1 EUR = 1.1224 USD); editable in the administration.
+DEFAULTS = {
+    "endpoint_id": None,
+    "parallelism": 4,
+    "roles": {},
+    "blocked_names": [],
+    "eur_per_usd": 0.8909,
+    # The watcher summarizes whole negotiations and needs the largest output budget.
+    "max_tokens": {"agent": 16000, "orchestrator": 16000, "moderator": 16000, "watcher": 32000},
+}
+# Prompt texts shipped before seeds were recorded; an installation still on one of them is unmodified.
+FIRST_PROMPT_HASHES = {
+    "agent": "8ec081987180f4c06bf6067ad547ab87142617b0e747992e8a3ef4c0f7003801",
+    "moderator": "5e808984d3fa77fa3575b89ab2f02c56de0ed18af9f1c4506bb9e83bfba9afef",
+    "orchestrator": "fa48bb36f1d1ab262f4e5faf1d1959d2a3d9f5b93ce2ca5aa61d41da4efbf94b",
+    "watcher": "05992cb50ed4b837d57ec3a0f89100d5cfd3c037f36ed4da55c1530783ce5e9a",
+}
 PHASE_LABELS = {
     "start": "Vorbereitung",
     "question": "Frage",
@@ -25,7 +42,9 @@ PHASE_LABELS = {
 
 def settings(session):
     row = session.get(Setting, "system")
-    return {**DEFAULTS, **(row.value if row else {})}
+    value = {**DEFAULTS, **(row.value if row else {})}
+    value["max_tokens"] = {**DEFAULTS["max_tokens"], **value["max_tokens"]}
+    return value
 
 
 def event(session, sim, kind, payload, actor="", group="", visibility="public"):
@@ -54,6 +73,26 @@ def latest_prompts(session):
         role: session.scalars(select(Prompt).where(Prompt.role == role).order_by(Prompt.version.desc())).first()
         for role in ROLES
     }
+
+
+def text_hash(text):
+    return hashlib.sha256(text.encode()).hexdigest()
+
+
+def sync_prompts(session):
+    """Adopts changed repository prompts as new versions; edited prompts in the database stay in charge."""
+    prompts = latest_prompts(session)
+    row = session.get(Setting, "prompt_seeds") or Setting(key="prompt_seeds", value={})
+    session.add(row)
+    seeds = dict(row.value)
+    for role in ROLES:
+        text = (Path(__file__).parent / "prompts" / f"prompt_{role}.md").read_text()
+        latest = prompts[role]
+        unmodified = latest and text_hash(latest.text) == seeds.get(role, FIRST_PROMPT_HASHES[role])
+        if not latest or (unmodified and latest.text != text):
+            session.add(Prompt(role=role, version=latest.version + 1 if latest else 1, text=text))
+            seeds[role] = text_hash(text)
+    row.value = seeds
 
 
 def import_actors(session, items):
@@ -161,6 +200,7 @@ def create_simulation(session, data, app):
         "prompt_versions": {k: v.version for k, v in prompts.items()},
         "params": params,
         "parallelism": system["parallelism"],
+        "max_tokens": system["max_tokens"],
         "blocked_names": system["blocked_names"],
         "mode": app.config["LLM_MODE"],
         "seed": secrets.randbits(32),
@@ -197,11 +237,7 @@ def initialize(app, username, password):
             db.session.add(User(username=username, password_hash=generate_password_hash(password)))
         if not db.session.get(Setting, "system"):
             db.session.add(Setting(key="system", value=DEFAULTS))
-        prompts = latest_prompts(db.session)
-        prompt_dir = Path(__file__).parent / "prompts"
-        for role in ROLES:
-            if not prompts[role]:
-                db.session.add(Prompt(role=role, version=1, text=(prompt_dir / f"prompt_{role}.md").read_text()))
+        sync_prompts(db.session)
         from .stakeholders import seed_stakeholders
 
         seed_stakeholders(db.session)

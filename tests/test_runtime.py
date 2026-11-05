@@ -52,7 +52,7 @@ def test_redline_retries_are_bounded(simulation, drain, factory, monkeypatch):
         return value
 
     instrument(monkeypatch, reject)
-    sid = simulation(attempts=3)
+    sid = simulation(attempts=3, rounds=1)
     drain()
     with factory() as s:
         events = s.scalars(select(Event).where(Event.simulation_id == sid, Event.kind == "review")).all()
@@ -60,7 +60,8 @@ def test_redline_retries_are_bounded(simulation, drain, factory, monkeypatch):
         assert len(events) == 18
         abstentions = s.scalars(select(Event).where(Event.simulation_id == sid, Event.kind == "abstention")).all()
         assert len(abstentions) == 6
-        assert s.get(Simulation, sid).state["outcome"] == "konsens"
+        # Nothing but abstentions is no consensus.
+        assert s.get(Simulation, sid).state["outcome"] == "teilkompromiss"
 
 
 def test_valid_rejection_round_limit_continue_and_reset(simulation, drain, factory, client, monkeypatch):
@@ -98,7 +99,8 @@ def test_valid_rejection_round_limit_continue_and_reset(simulation, drain, facto
         assert s.scalar(select(Event).where(Event.simulation_id == sid, Event.run == 1, Event.kind == "report"))
     job = claim(factory)
     rt = Runtime(client.application, factory, *job)
-    assert not rt.context("agent", next(iter(rt.actors)))["verlauf"]
+    fresh = rt.context("agent", next(iter(rt.actors)))
+    assert not fresh["eigener_verlauf"] and not fresh["positionen_anderer"] and not fresh["letzte_abstimmung"]
 
 
 def test_mutual_consent_and_round_robin_limits(simulation, drain, factory, monkeypatch):
@@ -274,3 +276,156 @@ def test_semantic_person_check_blocks_unrecognized_names(simulation, drain, fact
         public = s.scalars(select(Event).where(Event.simulation_id == sid, Event.visibility == "public")).all()
         assert "Testvorname" not in json.dumps([e.payload for e in public])
         assert s.scalar(select(Event).where(Event.simulation_id == sid, Event.kind == "abstention"))
+
+
+def rejecting_votes(review_fields):
+    def transform(task, ctx, value):
+        if task == "abstimmung":
+            value.update(stimme="ablehnen", begruendung="Der Vorschlag braucht eine Gegenfinanzierung.")
+        if task == "statement_pruefen" and ctx["statement"].get("stimme") == "ablehnen":
+            value.update(review_fields)
+        return value
+
+    return transform
+
+
+def test_rejection_with_score_zero_and_named_line_still_counts(simulation, drain, factory, monkeypatch):
+    fields = {"bewertung": 0, "entscheidung": "zurueckgewiesen", "verletzte_rote_linie": "R1"}
+    instrument(monkeypatch, rejecting_votes(fields))
+    sid = simulation(rounds=1)
+    drain()
+    with factory() as s:
+        sim = s.get(Simulation, sid)
+        assert sim.state["outcome"] == "teilkompromiss"
+        assert {v["stimme"] for v in sim.state["votes"].values()} == {"ablehnen"}
+
+
+def test_rejection_without_named_line_becomes_abstention(simulation, drain, factory, monkeypatch):
+    fields = {"bewertung": 2, "entscheidung": "freigegeben", "verletzte_rote_linie": None}
+    instrument(monkeypatch, rejecting_votes(fields))
+    sid = simulation(rounds=1)
+    drain()
+    with factory() as s:
+        sim = s.get(Simulation, sid)
+        assert all(v is None for v in sim.state["votes"].values())
+        assert sim.state["outcome"] == "teilkompromiss"  # no support, so no consensus either
+
+
+def test_confirmed_rejection_survives_blocked_wording(simulation, drain, factory, monkeypatch):
+    base = rejecting_votes({"bewertung": 2, "entscheidung": "freigegeben", "verletzte_rote_linie": "R1"})
+
+    def transform(task, ctx, value):
+        value = base(task, ctx, value)
+        if task == "sicherheit" and ctx.get("pruefling", {}).get("stimme") == "ablehnen":
+            value["keine_vertraulichen_statuten"] = False
+        return value
+
+    instrument(monkeypatch, transform)
+    sid = simulation(rounds=1)
+    drain()
+    with factory() as s:
+        sim = s.get(Simulation, sid)
+        assert sim.state["outcome"] == "teilkompromiss"
+        assert all(v["stimme"] == "ablehnen" for v in sim.state["votes"].values())
+        votes = s.scalars(select(Event).where(Event.simulation_id == sid, Event.kind == "vote")).all()
+        assert all("nicht zur Veröffentlichung" in e.payload["begruendung"] for e in votes)
+
+
+def test_violated_line_id_is_not_published(simulation, drain, factory, monkeypatch):
+    base = rejecting_votes({"bewertung": 2, "entscheidung": "freigegeben", "verletzte_rote_linie": "R1"})
+
+    def transform(task, ctx, value):
+        value = base(task, ctx, value)
+        if task == "abstimmung":
+            value["verletzte_rote_linie"] = "R1"
+        return value
+
+    instrument(monkeypatch, transform)
+    sid = simulation(rounds=1)
+    drain()
+    with factory() as s:
+        votes = s.scalars(select(Event).where(Event.simulation_id == sid, Event.kind == "vote")).all()
+        assert votes and all("verletzte_rote_linie" not in e.payload for e in votes)
+
+
+def test_minority_abstention_keeps_consensus(simulation, drain, factory, monkeypatch):
+    def transform(task, ctx, value):
+        if task == "statement_pruefen" and ctx.get("institution") == first_name and ctx["statement"].get("stimme"):
+            value.update(bewertung=0, entscheidung="zurueckgewiesen", hinweis_an_agent="Überarbeiten.")
+        return value
+
+    first_name = "Ärztekammer"
+    instrument(monkeypatch, transform)
+    sid = simulation(rounds=1)
+    drain()
+    with factory() as s:
+        sim = s.get(Simulation, sid)
+        # One of two institutions supports: exactly half is enough.
+        assert sim.state["outcome"] == "konsens"
+        assert sum(v is None for v in sim.state["votes"].values()) == 1
+
+
+def test_invalid_safety_answer_pauses_instead_of_abstaining(simulation, drain, factory, monkeypatch):
+    original = Gateway.complete
+
+    def invalid(self, config, request, task):
+        response = original(self, config, request, task)
+        context = json.loads(request["messages"][-1]["content"])
+        if task == "sicherheit" and context.get("pruefling", {}).get("stimme"):
+            response["choices"][0]["message"]["content"] = "invalid-json"
+        return response
+
+    monkeypatch.setattr(Gateway, "complete", invalid)
+    sid = simulation()
+    drain()
+    with factory() as s:
+        assert s.get(Simulation, sid).status == "paused"
+        assert not s.scalar(select(Event).where(Event.simulation_id == sid, Event.kind == "ballot"))
+
+
+def test_every_stakeholder_gets_a_bounded_context_of_its_own(simulation, drain, factory, monkeypatch):
+    long_text = "Langes Argument. " * 200
+
+    def transform(task, ctx, value):
+        if task == "einzelphase":
+            value["position"] = f"{ctx['institution']}: {long_text}"
+        if task == "abstimmung":
+            value.update(stimme="ablehnen")
+        if task == "statement_pruefen" and ctx["statement"].get("stimme") == "ablehnen":
+            value["verletzte_rote_linie"] = "R1"
+        return value
+
+    instrument(monkeypatch, transform)
+    sid = simulation(rounds=4)
+    drain()
+
+    def largest(s, role, round_number, task):
+        rows = s.scalars(
+            select(Call).where(Call.simulation_id == sid, Call.role == role, Call.round == round_number)
+        ).all()
+        sizes = [
+            len(json.dumps(c.request, ensure_ascii=False))
+            for c in rows
+            if json.loads(c.request["messages"][-1]["content"]).get("aufgabe") == task
+        ]
+        return max(sizes)
+
+    with factory() as s:
+        # Context does not grow with the rounds: own history is capped, others appear once.
+        assert largest(s, "agent", 4, "einzelphase") < largest(s, "agent", 2, "einzelphase") * 1.5
+        # A check of one statement carries one institution's statutes and no foreign history.
+        review = next(
+            json.loads(c.request["messages"][-1]["content"])
+            for c in s.scalars(select(Call).where(Call.simulation_id == sid, Call.round == 3))
+            if json.loads(c.request["messages"][-1]["content"]).get("aufgabe") == "statement_pruefen"
+        )
+        assert list(review["institutionen_profile"]) and len(review["institutionen_profile"]) == 1
+        assert list(review["bisherige_positionen"]) == [review["institution"]]
+        # The safety check reads the text under review, not the negotiation.
+        safety = next(
+            json.loads(c.request["messages"][-1]["content"])
+            for c in s.scalars(select(Call).where(Call.simulation_id == sid, Call.round == 3))
+            if json.loads(c.request["messages"][-1]["content"]).get("aufgabe") == "sicherheit"
+        )
+        assert "verlauf" not in safety and "bisherige_positionen" not in safety
+        assert long_text not in json.dumps(safety["institutionen_profile"])

@@ -42,6 +42,21 @@ def source_directory():
     return packaged if packaged.is_dir() else Path(__file__).parents[1] / "prompts" / "agents"
 
 
+def icon_directory():
+    packaged = Path(__file__).parent / "icons"
+    return packaged if packaged.is_dir() else Path(__file__).parents[1] / "assets" / "icons"
+
+
+def has_icon(actor_id):
+    return re.fullmatch(r"[a-z][a-z0-9_-]*", actor_id) is not None and (icon_directory() / f"{actor_id}.png").is_file()
+
+
+def initials(name):
+    """Fallback mark for institutions without an icon file: distinct even for similar names."""
+    words = [w for w in re.split(r"[\s-]+", re.sub(r":\S*", "", name)) if w not in {"Vertretung", "der", "Land"}]
+    return "".join(w[0] for w in words[:2]).upper() if len(words) > 1 else "".join(words)[:2].capitalize()
+
+
 def fingerprint(name, parent_id, profile):
     data = {"name": name, "parent_id": parent_id, "profile": {k: v for k, v in profile.items() if k != "seed_hash"}}
     return hashlib.sha256(json.dumps(data, sort_keys=True, ensure_ascii=False).encode()).hexdigest()

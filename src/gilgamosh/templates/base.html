@@ -1,19 +1,37 @@
 <!doctype html>
-<html lang="de" data-theme="light">
-<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="csrf-token" content="{{ csrf_token() }}">
-<title>{% block title %}Gilgamosh{% endblock %}</title>
-<link rel="stylesheet" href="{{ url_for('static', filename='app.css') }}">
-<script defer src="{{ url_for('static', filename='app.js') }}"></script>
-{% block scripts %}{% endblock %}</head>
-<body>
-<header class="bg-white border-b border-slate-200"><nav class="navbar shell px-5 gap-8" aria-label="Hauptnavigation">
-<a class="font-bold tracking-widest text-lg text-teal-800" href="/">GILGAMOSH</a>
-{% if current_user.is_authenticated %}
-<div class="flex gap-5 flex-1"><a class="link link-hover" href="/">Simulationen</a><a class="link link-hover" href="/admin">Administration</a></div>
-<form action="/logout" method="post"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="btn btn-ghost btn-sm">Abmelden</button></form>
-{% endif %}</nav></header>
-{% if config.LLM_MODE == 'fake' %}<div class="bg-amber-50 text-amber-900 text-sm text-center p-2">Offline-Demo · Synthetische Antworten · Keine echten LLM-Aufrufe</div>{% endif %}
-<main class="shell p-5 lg:p-8">{% block content %}{% endblock %}</main>
-<div id="notification" class="toast toast-end hidden z-50" role="status"><div class="alert bg-slate-900 text-white"><span></span></div></div>
-</body></html>
+<html lang="de" data-theme="gilgamosh">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="csrf-token" content="{{ csrf_token() }}">
+  <title>{% block title %}Gilgamosh{% endblock %}</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='app.css') }}">
+  <script defer src="{{ url_for('static', filename='app.js') }}"></script>
+  {% block scripts %}{% endblock %}
+</head>
+<body class="min-h-screen">
+  <header class="border-b border-slate-200 bg-white">
+    <nav class="shell flex h-14 items-center gap-6" aria-label="Hauptnavigation">
+      <a class="flex items-center gap-2.5 font-semibold text-slate-900" href="/">
+        <span class="flex h-7 w-7 items-center justify-center rounded-lg bg-teal-700 text-sm font-bold text-white" aria-hidden="true">G</span>
+        Gilgamosh
+      </a>
+      {% if current_user.is_authenticated %}
+      <div class="flex flex-1 items-center gap-1">
+        <a class="nav-link {% if request.endpoint in ['web.index', 'web.simulation_page'] %}nav-link-active{% endif %}" href="/">Simulationen</a>
+        <a class="nav-link {% if request.endpoint == 'web.admin' %}nav-link-active{% endif %}" href="/admin">Administration</a>
+      </div>
+      <form action="/logout" method="post">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <button class="nav-link">Abmelden</button>
+      </form>
+      {% endif %}
+    </nav>
+  </header>
+  {% if config.LLM_MODE == 'fake' %}
+  <div class="bg-amber-50 p-2 text-center text-sm text-amber-900">Offline-Demo · Synthetische Antworten · Keine echten LLM-Aufrufe</div>
+  {% endif %}
+  <main class="shell py-6 lg:py-8">{% block content %}{% endblock %}</main>
+  <div id="notification" class="toast toast-end z-50 hidden" role="status"><div class="alert bg-slate-900 text-sm text-white"><span></span></div></div>
+</body>
+</html>

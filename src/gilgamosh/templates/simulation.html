@@ -1,20 +1,145 @@
-{% extends 'base.html' %}{% block scripts %}<script defer src="{{ url_for('static', filename='chart.umd.js') }}"></script><script defer src="{{ url_for('static', filename='simulation.js') }}"></script>{% endblock %}
+{% extends 'base.html' %}
+{% block scripts %}
+<script defer src="{{ url_for('static', filename='chart.umd.js') }}"></script>
+<script defer src="{{ url_for('static', filename='simulation.js') }}"></script>
+{% endblock %}
 {% block content %}
 <div id="simulation" data-id="{{ sim.id }}">
-<div class="flex flex-wrap justify-between gap-4 mb-4"><div><p class="text-xs uppercase tracking-widest text-teal-700 mb-2">Institutionelle Verhandlung</p><h1 id="question" class="text-2xl font-semibold max-w-4xl">Simulation wird geladen …</h1></div><div class="flex gap-2 items-start"><button id="pause" class="btn btn-sm" data-command="pause">Pause</button><button id="resume" class="btn btn-sm hidden" data-command="resume">Fortsetzen</button><button id="end" class="btn btn-sm btn-ghost" data-command="end">Beenden</button></div></div>
-<div class="flex flex-wrap gap-4 text-sm items-center mb-5"><span id="phase-status" class="font-medium"></span><span id="active-status"></span><span id="elapsed" class="text-slate-500"></span></div>
-<div id="phase-track" class="flex flex-wrap gap-2 text-xs mb-6">{% for key, label in phases.items() if key not in ['start','question','done'] %}<span class="badge badge-ghost" data-phase="{{ key }}">{{ label }}</span>{% endfor %}</div>
-<div id="error" class="alert alert-error hidden mb-4" role="alert"></div>
-<div id="decision" class="card bg-amber-50 p-4 hidden mb-4"><p class="font-medium mb-3">Teilkompromiss erreicht. Wie soll die Verhandlung weitergehen?</p><div class="flex gap-2 flex-wrap"><button class="btn btn-sm" data-command="continue">Mit Stand fortsetzen</button><button class="btn btn-sm" data-command="reset">Archivieren und neu starten</button><button class="btn btn-sm" data-command="end">Beenden</button></div></div>
-<div class="grid lg:grid-cols-12 gap-5 items-start">
-<aside class="lg:col-span-2 card bg-white p-4"><h2 class="text-xs font-bold tracking-widest text-slate-500 mb-5">INSTITUTIONEN</h2><div id="actors" class="space-y-5"></div></aside>
-<section class="lg:col-span-7 card bg-white min-w-0"><div class="border-b p-3 flex gap-2" role="tablist"><button class="btn btn-sm btn-ghost bg-slate-100" data-view="discussion" role="tab">Diskussion</button><button class="btn btn-sm btn-ghost" data-view="groups" role="tab">Gruppen</button><button class="btn btn-sm btn-ghost" data-view="analysis" role="tab">Auswertung</button></div>
-<div id="discussion" class="p-5 space-y-6" data-view-panel></div>
-<div id="groups" class="hidden p-5 space-y-5" data-view-panel></div>
-<div id="analysis" class="hidden p-5 space-y-6" data-view-panel><h2 class="text-lg font-semibold">Abstimmungen und Positionen</h2><div id="ballots"></div><div class="h-64"><canvas id="usage-chart" aria-label="Tokenverbrauch je Rolle" role="img"></canvas></div><div id="positions"></div><h2 class="text-lg font-semibold">Abschlussberichte</h2><div id="reports"></div><button class="btn btn-sm" data-command="retry_report">Abschlussbericht erneut erstellen</button><div class="flex gap-3"><a class="btn btn-sm" href="/api/simulations/{{ sim.id }}/export?format=md">Markdown exportieren</a><a class="btn btn-sm" href="/api/simulations/{{ sim.id }}/export?format=json">JSON exportieren</a></div></div>
-</section>
-<aside class="lg:col-span-3 card bg-white p-5 sticky top-4"><h2 class="text-lg font-semibold mb-2">Aktueller Stand</h2><p class="text-xs text-slate-500 mb-4">Laufende Zusammenfassung durch den Watcher</p><div id="watcher-status" class="text-sm mb-4" role="status"></div><div id="watcher" class="space-y-4"></div><div class="border-t mt-5 pt-4"><h3 class="text-sm font-semibold mb-2">Letzter Vorschlag</h3><p id="proposal" class="text-sm text-slate-600">Noch kein Vorschlag.</p></div><div class="border-t mt-5 pt-4"><h3 class="text-sm font-semibold mb-2">Letzte Abstimmung</h3><div id="votes" class="text-sm"></div></div><div class="border-t mt-5 pt-4"><h3 class="text-sm font-semibold mb-2">Koalitionen</h3><div id="coalitions" class="text-sm space-y-2"></div></div></aside>
-</div><footer class="flex flex-wrap gap-4 text-xs text-slate-500 mt-5" role="status"><span id="connection">Verbindung wird hergestellt …</span><span id="worker-status"></span><span id="last-activity"></span></footer>
+  <div class="mb-5 flex flex-wrap items-start justify-between gap-4">
+    <div class="min-w-0 max-w-5xl">
+      <div class="mb-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
+        <span id="phase-status" class="pill pill-neutral"></span>
+        <span id="phase-detail" class="font-medium text-slate-700"></span>
+        <span id="active-status" class="text-slate-500"></span>
+        <span id="elapsed" class="text-slate-500"></span>
+      </div>
+      <h1 id="question" class="text-xl font-semibold leading-snug text-slate-900 lg:text-2xl">Simulation wird geladen …</h1>
+    </div>
+    <div class="flex shrink-0 gap-2">
+      <button id="pause" class="btn btn-sm" data-command="pause">Pause</button>
+      <button id="resume" class="btn btn-sm btn-primary hidden" data-command="resume">Fortsetzen</button>
+      <button id="end" class="btn btn-sm btn-ghost" data-command="end">Beenden</button>
+    </div>
+  </div>
+
+  <div id="phase-track" class="panel mb-4 flex items-center gap-3 overflow-x-auto px-5 py-3">
+    {% for key, label in phases.items() if key not in ['start','question','done'] %}
+    <span class="phase-step" data-phase="{{ key }}"><span class="phase-dot" aria-hidden="true"></span>{{ label }}</span>
+    {% if not loop.last %}<span class="phase-line" aria-hidden="true"></span>{% endif %}
+    {% endfor %}
+  </div>
+
+  <div id="error" class="notice notice-bad mb-4 hidden" role="alert"></div>
+  <div id="outcome" class="notice mb-4 hidden" role="status"></div>
+  <div id="decision" class="notice notice-warn mb-4 hidden flex-col">
+    <p class="font-medium">Teilkompromiss erreicht. Wie soll die Verhandlung weitergehen?</p>
+    <div class="flex flex-wrap gap-2">
+      <button class="btn btn-sm btn-primary" data-command="continue">Mit Stand fortsetzen</button>
+      <button class="btn btn-sm" data-command="reset">Archivieren und neu starten</button>
+      <button class="btn btn-sm btn-ghost" data-command="end">Beenden</button>
+    </div>
+  </div>
+
+  <div class="mb-4 grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-5">
+    <div class="kpi"><span class="kpi-label">Runde</span><span id="kpi-round" class="kpi-value">–</span></div>
+    <div class="kpi"><span class="kpi-label">Kosten bisher</span><span id="kpi-cost" class="kpi-value">–</span></div>
+    <div class="kpi"><span class="kpi-label">LLM-Aufrufe</span><span id="kpi-calls" class="kpi-value">–</span></div>
+    <div class="kpi"><span class="kpi-label">Rückweisungen · Enthaltungen</span><span id="kpi-review" class="kpi-value">–</span></div>
+    <div class="kpi col-span-2 md:col-span-1">
+      <span class="kpi-label">Größter Kontext</span><span id="kpi-context" class="kpi-value">–</span>
+      <span class="meter" aria-hidden="true"><span id="kpi-context-fill" class="meter-fill w-0"></span></span>
+    </div>
+  </div>
+
+  <div class="grid items-start gap-4 xl:grid-cols-12">
+    <section class="panel min-w-0 xl:col-span-9">
+      <div class="flex gap-2 border-b border-slate-200 px-4" role="tablist">
+        <button class="view-tab view-tab-active" data-view="overview" role="tab">Überblick</button>
+        <button class="view-tab" data-view="discussion" role="tab">Diskussion</button>
+        <button class="view-tab" data-view="groups" role="tab">Gruppen</button>
+        <button class="view-tab" data-view="analysis" role="tab">Auswertung</button>
+      </div>
+
+      <div id="overview" class="space-y-6 p-4 lg:p-5" data-view-panel>
+        <div>
+          <h2 class="panel-title mb-3">Institutionen</h2>
+          <div id="stakeholders" class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3"></div>
+        </div>
+        <div class="border-t border-slate-100 pt-5">
+          <h2 class="panel-title">Zeitstrahl der Verhandlung</h2>
+          <p class="muted mb-3">Jede Spalte ist ein Schritt, jede Zeile eine Institution. Symbole führen zum Beitrag.</p>
+          <div class="overflow-x-auto"><table id="timeline" class="tl-table"></table></div>
+          <div id="timeline-legend" class="mt-3 flex flex-wrap gap-x-4 gap-y-1.5 text-xs text-slate-600"></div>
+        </div>
+        <div class="grid gap-6 border-t border-slate-100 pt-5 md:grid-cols-2">
+          <figure>
+            <figcaption><h2 class="panel-title">Abstimmung</h2><p id="vote-chart-note" class="muted mb-3"></p></figcaption>
+            <div class="flex flex-wrap items-center gap-5">
+              <div class="relative h-40 w-40 shrink-0"><canvas id="vote-chart" role="img" aria-label="Stimmenverteilung der letzten Abstimmung"></canvas></div>
+              <div id="vote-legend" class="min-w-40 flex-1 space-y-1.5 text-sm"></div>
+            </div>
+          </figure>
+          <figure>
+            <figcaption><h2 class="panel-title">Kosten nach Rolle</h2><p id="cost-chart-note" class="muted mb-3"></p></figcaption>
+            <div class="flex flex-wrap items-center gap-5">
+              <div class="relative h-40 w-40 shrink-0"><canvas id="cost-chart" role="img" aria-label="Kostenanteil je Rolle"></canvas></div>
+              <div id="cost-legend" class="min-w-40 flex-1 space-y-1.5 text-sm"></div>
+            </div>
+          </figure>
+        </div>
+      </div>
+
+      <div id="discussion" class="hidden p-4 lg:p-5" data-view-panel>
+        <div id="discussion-feed" class="space-y-5"></div>
+        <div id="discussion-waiting" class="mt-5 space-y-1 border-t border-slate-100 pt-4 text-sm text-slate-500 empty:hidden"></div>
+      </div>
+
+      <div id="groups" class="hidden space-y-5 p-4 lg:p-5" data-view-panel></div>
+
+      <div id="analysis" class="hidden space-y-6 p-4 lg:p-5" data-view-panel>
+        <div><h2 class="panel-title mb-3">Abstimmungen je Runde</h2><div id="ballots" class="overflow-x-auto"></div></div>
+        <div><h2 class="panel-title mb-3">Positionsverlauf</h2><div id="positions"></div></div>
+        <div><h2 class="panel-title mb-3">Abschlussberichte</h2><div id="reports" class="space-y-3"></div></div>
+        <div class="flex flex-wrap gap-2 border-t border-slate-100 pt-4">
+          <button class="btn btn-sm" data-command="retry_report">Abschlussbericht erneut erstellen</button>
+          <a class="btn btn-sm" href="/api/simulations/{{ sim.id }}/export?format=md">Markdown exportieren</a>
+          <a class="btn btn-sm" href="/api/simulations/{{ sim.id }}/export?format=json">JSON exportieren</a>
+        </div>
+      </div>
+    </section>
+
+    <aside class="space-y-4 xl:col-span-3">
+      <div class="panel panel-body">
+        <h2 class="panel-title">Aktueller Stand</h2>
+        <p class="muted mb-3">Laufende Zusammenfassung des Watchers</p>
+        <div id="watcher-status" class="mb-3 text-sm" role="status"></div>
+        <div id="watcher" class="space-y-4"></div>
+      </div>
+      <div class="panel panel-body">
+        <h2 class="panel-title mb-2">Letzter Vorschlag</h2>
+        <p id="proposal" class="text-sm leading-relaxed text-slate-600">Noch kein Vorschlag.</p>
+      </div>
+      <div class="panel panel-body">
+        <h2 class="panel-title mb-2">Koalitionen</h2>
+        <div id="coalitions" class="space-y-2 text-sm"></div>
+      </div>
+    </aside>
+  </div>
+
+  <footer class="mt-4 flex flex-wrap gap-4 text-xs text-slate-500" role="status">
+    <span id="connection">Verbindung wird hergestellt …</span><span id="worker-status"></span><span id="last-activity"></span>
+  </footer>
 </div>
-<dialog id="trajectory-modal" class="modal"><div class="modal-box max-w-5xl"><h2 class="font-semibold text-lg">Technisches Aufrufprotokoll</h2><p class="text-sm text-amber-800 my-3">Interner Prüfbereich: enthält ungeprüfte Rohantworten und vertrauliche Kontexte. Kein Bestandteil der veröffentlichten Diskussion.</p><pre id="trajectory-content" class="text-xs"></pre><form method="dialog" class="modal-action"><button class="btn">Schließen</button></form></div><form method="dialog" class="modal-backdrop"><button>Schließen</button></form></dialog>
+
+<div id="viz-tooltip" class="viz-tooltip" role="tooltip"></div>
+
+<dialog id="trajectory-modal" class="modal">
+  <div class="modal-box max-w-5xl">
+    <h2 class="text-lg font-semibold">Technisches Aufrufprotokoll</h2>
+    <p class="notice notice-warn my-3">Interner Prüfbereich: enthält ungeprüfte Rohantworten und vertrauliche Kontexte. Kein Bestandteil der veröffentlichten Diskussion.</p>
+    <pre id="trajectory-content" class="text-xs"></pre>
+    <form method="dialog" class="modal-action"><button class="btn">Schließen</button></form>
+  </div>
+  <form method="dialog" class="modal-backdrop"><button>Schließen</button></form>
+</dialog>
 {% endblock %}

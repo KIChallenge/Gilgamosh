@@ -1,34 +1,164 @@
-{% extends 'base.html' %}{% block content %}
-<h1 class="text-3xl font-semibold mb-6">Administration</h1>
-<div role="tablist" class="tabs tabs-boxed w-fit mb-6"><button role="tab" class="tab tab-active" data-admin-tab="actors">Akteure &amp; Prompts</button><button role="tab" class="tab" data-admin-tab="models">Modelle &amp; Verbindungen</button></div>
+{% extends 'base.html' %}{% from '_icons.html' import actor_icon %}{% block content %}
+<h1 class="mb-5 text-2xl font-semibold text-slate-900">Administration</h1>
+<datalist id="model-catalog"></datalist>
+<div role="tablist" class="mb-6 flex gap-2 border-b border-slate-200">
+  <button role="tab" class="view-tab view-tab-active" data-admin-tab="actors">Akteure &amp; Prompts</button>
+  <button role="tab" class="view-tab" data-admin-tab="models">Modelle &amp; Verbindungen <span id="connection-badge"></span></button>
+</div>
+
 <section data-admin-panel="actors" class="space-y-6">
-<div class="card bg-white p-6"><h2 class="text-xl font-semibold mb-2">Institutionen</h2><p class="text-sm text-slate-500 mb-5">Profile wirken auf neue Simulationen. Alle Akteure vertreten Institutionen; keine Personenrollen oder Personennamen.</p>
-<form data-api="/api/admin/actors/seed" data-success="reload" class="mb-5"><button class="btn btn-sm">Repository-Profile aktualisieren</button><p class="text-xs text-slate-500 mt-2">24 Stakeholder, darunter neun Landesprofile. Eigene Änderungen und Modellzuweisungen bleiben erhalten.</p><p data-error class="text-red-700" role="alert"></p></form>
-<div class="grid lg:grid-cols-2 gap-4">{% for actor in actors %}
-<details class="border rounded-lg p-4"><summary class="cursor-pointer font-medium">{{ actor.name }}{% if not actor.profile.get("selectable", true) %} · Gruppenknoten{% endif %}{% if actor.profile.demo %}<span class="badge badge-warning badge-sm ml-2">Demoprofil</span>{% endif %}</summary>
-<form data-api="/api/admin/actors" class="space-y-3 mt-4"><input type="hidden" name="id" value="{{ actor.id }}">
-<label class="form-control">Institutionsbezeichnung<input class="input input-bordered" name="name" value="{{ actor.name }}" required></label>
-<label class="form-control">Übergeordnete Institution<select class="select select-bordered" name="parent_id"><option value="">Keine</option>{% for other in actors if other.id != actor.id %}<option value="{{ other.id }}" {% if actor.parent_id == other.id %}selected{% endif %}>{{ other.name }}</option>{% endfor %}</select></label>
-<label class="form-control">Systemprompt<textarea class="textarea textarea-bordered" name="system_prompt" required>{{ actor.profile.system_prompt }}</textarea></label>
-<label class="form-control">Rote Linien (JSON-Liste)<textarea class="textarea textarea-bordered font-mono text-xs" name="rote_linien" data-json>{{ actor.profile.rote_linien | tojson(indent=2) }}</textarea></label>
-<label class="form-control">Verhandelbare Positionen (JSON)<textarea class="textarea textarea-bordered font-mono text-xs" name="verhandelbar" data-json>{{ actor.profile.verhandelbar | tojson(indent=2) }}</textarea></label>
-<label class="form-control">DB-Infos und Quellen (JSON)<textarea class="textarea textarea-bordered font-mono text-xs" name="db_infos" data-json>{{ actor.profile.db_infos | tojson(indent=2) }}</textarea></label>
-<label class="form-control">Verbindung<select class="select select-bordered" name="endpoint_id"><option value="">Globaler Default</option>{% for e in endpoints %}<option value="{{ e.id }}" {% if actor.endpoint_id == e.id %}selected{% endif %}>{{ e.name }}</option>{% endfor %}</select></label>
-<label class="form-control">Modell (leer = Modell der Verbindung)<input class="input input-bordered" name="model" value="{{ actor.model }}"></label>
-<label class="flex gap-2 items-center"><input class="checkbox checkbox-sm" type="checkbox" name="demo" {% if actor.profile.demo %}checked{% endif %}>Vorläufiges Demoprofil</label>
-<label class="flex gap-2 items-center"><input class="checkbox checkbox-sm" type="checkbox" name="selectable" {% if actor.profile.get('selectable',true) %}checked{% endif %}>Als Verhandlungsakteur auswählbar</label>
-{% if actor.profile.source_file %}<p class="text-xs text-slate-500">Quelle: {{ actor.profile.source_file }} · Modellierter Entwurf, fachlich zu prüfen.</p>{% endif %}
-<button class="btn btn-sm bg-teal-800 text-white">Profil speichern</button><p data-error class="text-red-700" role="alert"></p></form></details>{% endfor %}</div></div>
-<div class="card bg-white p-6"><h2 class="text-xl font-semibold mb-3">Institutionen importieren / anlegen</h2><p class="text-sm mb-3">JSON-Liste mit stabiler id, name, system_prompt, rote_linien, verhandelbar und db_infos. Bestehende Kennungen werden aktualisiert.</p><form data-api="/api/admin/actors" data-success="reload"><label class="form-control"><span class="sr-only">Institutionsprofile als JSON</span><textarea class="textarea textarea-bordered font-mono w-full" name="items" data-json required placeholder='[{"id":"institution","name":"Institution","system_prompt":"...","rote_linien":["..."],"verhandelbar":[],"db_infos":[]}]'></textarea></label><button class="btn btn-sm mt-3">Importieren</button><p data-error class="text-red-700" role="alert"></p></form></div>
-<div class="card bg-white p-6"><h2 class="text-xl font-semibold mb-3">Rollenprompts</h2>{% for role, prompt in prompts.items() %}<details class="border-b py-3"><summary class="cursor-pointer">{{ {'agent':'Institution','orchestrator':'Orchestrator','moderator':'Moderator','watcher':'Watcher'}[role] }} · Version {{ prompt.version }}</summary><form data-api="/api/admin/prompts" data-success="reload" class="mt-3"><input name="role" value="{{ role }}" type="hidden"><label class="form-control"><span class="sr-only">Prompt für {{ role }}</span><textarea name="text" class="textarea textarea-bordered font-mono text-xs w-full h-80" required>{{ prompt.text }}</textarea></label><button class="btn btn-sm mt-3">Neue Version speichern</button><p data-error class="text-red-700" role="alert"></p></form></details>{% endfor %}</div>
+  <div class="panel panel-body">
+    <div class="mb-4 flex flex-wrap items-start justify-between gap-4">
+      <div>
+        <h2 class="panel-title">Institutionen</h2>
+        <p class="muted mt-1 max-w-2xl">Profile wirken auf neue Simulationen. Alle Akteure vertreten Institutionen; keine Personenrollen oder Personennamen. 24 modellierte Stakeholder, darunter neun Landesprofile.</p>
+      </div>
+      <form data-api="/api/admin/actors/seed" data-success="reload">
+        <button class="btn btn-sm">Repository-Profile aktualisieren</button>
+        <p data-error class="text-sm text-red-700 empty:hidden" role="alert"></p>
+      </form>
+    </div>
+    <div class="grid gap-3 lg:grid-cols-2">
+      {% for actor in actors %}
+      <details class="rounded-xl border border-slate-200">
+        <summary class="flex cursor-pointer items-center gap-2 px-4 py-3 text-sm font-medium text-slate-800">
+          {{ actor.name }}
+          {% if not actor.profile.get("selectable", true) %}<span class="pill pill-neutral">Gruppenknoten</span>{% endif %}
+          {% if actor.profile.demo %}<span class="pill pill-warn">Demoprofil</span>{% endif %}
+          <span class="ml-auto flex min-w-0 items-center gap-2">
+            {% if actor.model %}<span class="pill pill-neutral truncate">{{ actor.model }}</span>{% endif %}
+            {{ actor_icon(actor.id, actor.name) }}
+          </span>
+        </summary>
+        <form data-api="/api/admin/actors" class="space-y-3 border-t border-slate-100 p-4">
+          <input type="hidden" name="id" value="{{ actor.id }}">
+          <label class="field"><span class="field-label">Institutionsbezeichnung</span><input class="input input-bordered input-sm" name="name" value="{{ actor.name }}" required></label>
+          <label class="field"><span class="field-label">Übergeordnete Institution</span><select class="select select-bordered select-sm" name="parent_id"><option value="">Keine</option>{% for other in actors if other.id != actor.id %}<option value="{{ other.id }}" {% if actor.parent_id == other.id %}selected{% endif %}>{{ other.name }}</option>{% endfor %}</select></label>
+          <label class="field"><span class="field-label">Systemprompt</span><textarea class="textarea textarea-bordered text-sm" name="system_prompt" required>{{ actor.profile.system_prompt }}</textarea></label>
+          <label class="field"><span class="field-label">Rote Linien (JSON-Liste)</span><textarea class="textarea textarea-bordered font-mono text-xs" name="rote_linien" data-json>{{ actor.profile.rote_linien | tojson(indent=2) }}</textarea></label>
+          <label class="field"><span class="field-label">Verhandelbare Positionen (JSON)</span><textarea class="textarea textarea-bordered font-mono text-xs" name="verhandelbar" data-json>{{ actor.profile.verhandelbar | tojson(indent=2) }}</textarea></label>
+          <label class="field"><span class="field-label">DB-Infos und Quellen (JSON)</span><textarea class="textarea textarea-bordered font-mono text-xs" name="db_infos" data-json>{{ actor.profile.db_infos | tojson(indent=2) }}</textarea></label>
+          <div class="grid gap-3 sm:grid-cols-2">
+            <label class="field"><span class="field-label">Verbindung</span><select class="select select-bordered select-sm" name="endpoint_id"><option value="">Globaler Default</option>{% for e in endpoints %}<option value="{{ e.id }}" {% if actor.endpoint_id == e.id %}selected{% endif %}>{{ e.name }}</option>{% endfor %}</select></label>
+            <label class="field"><span class="field-label">Modell (leer = Modell der Verbindung)</span><input class="input input-bordered input-sm" name="model" value="{{ actor.model }}" list="model-catalog" autocomplete="off" data-model-input></label>
+          </div>
+          <div class="flex flex-wrap gap-5 text-sm">
+            <label class="flex items-center gap-2"><input class="checkbox checkbox-sm" type="checkbox" name="demo" {% if actor.profile.demo %}checked{% endif %}>Vorläufiges Demoprofil</label>
+            <label class="flex items-center gap-2"><input class="checkbox checkbox-sm checkbox-primary" type="checkbox" name="selectable" {% if actor.profile.get('selectable',true) %}checked{% endif %}>Als Verhandlungsakteur auswählbar</label>
+          </div>
+          {% if actor.profile.source_file %}<p class="text-xs text-slate-500">Quelle: {{ actor.profile.source_file }} · Modellierter Entwurf, fachlich zu prüfen.</p>{% endif %}
+          {% if not icon_url(actor.id) %}<p class="text-xs text-slate-500">Kein Icon hinterlegt. Datei: src/assets/icons/{{ actor.id }}.png</p>{% endif %}
+          <button class="btn btn-sm btn-primary">Profil speichern</button>
+          <p data-error class="text-sm text-red-700 empty:hidden" role="alert"></p>
+        </form>
+      </details>
+      {% endfor %}
+    </div>
+  </div>
+
+  <div class="panel panel-body">
+    <h2 class="panel-title mb-1">Institutionen importieren oder anlegen</h2>
+    <p class="muted mb-3">JSON-Liste mit stabiler id, name, system_prompt, rote_linien, verhandelbar und db_infos. Bestehende Kennungen werden aktualisiert.</p>
+    <form data-api="/api/admin/actors" data-success="reload">
+      <label class="field"><span class="sr-only">Institutionsprofile als JSON</span><textarea class="textarea textarea-bordered w-full font-mono text-xs" name="items" data-json required placeholder='[{"id":"institution","name":"Institution","system_prompt":"...","rote_linien":["..."],"verhandelbar":[],"db_infos":[]}]'></textarea></label>
+      <button class="btn btn-sm mt-3">Importieren</button>
+      <p data-error class="text-sm text-red-700 empty:hidden" role="alert"></p>
+    </form>
+  </div>
+
+  <div class="panel panel-body">
+    <h2 class="panel-title mb-3">Rollenprompts</h2>
+    {% for role, prompt in prompts.items() %}
+    <details class="border-b border-slate-100 py-3 last:border-0">
+      <summary class="cursor-pointer text-sm font-medium text-slate-800">{{ {'agent':'Institution','orchestrator':'Orchestrator','moderator':'Moderator','watcher':'Watcher'}[role] }} <span class="pill pill-neutral ml-1">Version {{ prompt.version }}</span></summary>
+      <form data-api="/api/admin/prompts" data-success="reload" class="mt-3">
+        <input name="role" value="{{ role }}" type="hidden">
+        <label class="field"><span class="sr-only">Prompt für {{ role }}</span><textarea name="text" class="textarea textarea-bordered h-80 w-full font-mono text-xs" required>{{ prompt.text }}</textarea></label>
+        <button class="btn btn-sm mt-3">Neue Version speichern</button>
+        <p data-error class="text-sm text-red-700 empty:hidden" role="alert"></p>
+      </form>
+    </details>
+    {% endfor %}
+  </div>
 </section>
+
 <section data-admin-panel="models" class="hidden space-y-6">
-<div class="card bg-white p-6"><h2 class="text-xl font-semibold mb-3">Default und Rollenzuweisungen</h2><form data-api="/api/admin/settings" class="space-y-4">
-<label class="form-control">Default-Verbindung<select class="select select-bordered" name="endpoint_id"><option value="">Nicht zugewiesen</option>{% for e in endpoints %}<option value="{{ e.id }}" {% if system.endpoint_id == e.id %}selected{% endif %}>{{ e.name }}</option>{% endfor %}</select></label>
-<label class="form-control">Maximale parallele Calls<input class="input input-bordered" type="number" min="1" max="16" name="parallelism" value="{{ system.parallelism }}"></label><p class="text-xs text-slate-500">Änderungen der Parallelität erfordern einen Worker-Neustart und gelten für neue Simulationen.</p>
-{% for role in ['moderator','orchestrator','watcher'] %}{% set assignment = system.roles.get(role,{}) %}<div class="grid sm:grid-cols-3 gap-3 items-end"><span class="font-medium">{{ role | capitalize }}</span><label class="form-control text-sm">Verbindung<select class="select select-bordered" name="roles.{{ role }}.endpoint_id"><option value="">Globaler Default</option>{% for e in endpoints %}<option value="{{ e.id }}" {% if assignment.get('endpoint_id') == e.id %}selected{% endif %}>{{ e.name }}</option>{% endfor %}</select></label><label class="form-control text-sm">Modell<input class="input input-bordered" name="roles.{{ role }}.model" value="{{ assignment.get('model','') }}" placeholder="Modell der Verbindung"></label></div>{% endfor %}
-<label class="form-control">Zusätzlich gesperrte Personennamen (JSON-Liste)<textarea class="textarea textarea-bordered font-mono text-xs" name="blocked_names" data-json>{{ system.blocked_names | tojson(indent=2) }}</textarea></label><button class="btn bg-teal-800 text-white">Einstellungen speichern</button><p data-error class="text-red-700" role="alert"></p></form></div>
-<div class="card bg-white p-6"><h2 class="text-xl font-semibold mb-4">Verbindungen</h2>
-{% for e in endpoints %}<details class="border rounded-lg p-4 mb-3"><summary class="cursor-pointer font-medium">{{ e.name }} · {{ e.model }} · {{ 'aktiv' if e.enabled else 'deaktiviert' }}</summary><form data-api="/api/admin/endpoints" data-success="reload" class="space-y-3 mt-4"><input type="hidden" name="id" value="{{ e.id }}">{% include 'endpoint_fields.html' %}<button class="btn btn-sm">Speichern</button><button type="button" class="btn btn-sm btn-ghost" data-probe="{{ e.id }}">Verbindung testen (API-Aufruf)</button><p data-error class="text-red-700" role="alert"></p></form></details>{% endfor %}
-<details class="border rounded-lg p-4"><summary class="cursor-pointer font-medium">Neue Verbindung</summary><form data-api="/api/admin/endpoints" data-success="reload" class="space-y-3 mt-4">{% set e = none %}{% include 'endpoint_fields.html' %}<button class="btn btn-sm bg-teal-800 text-white">Verbindung anlegen</button><p data-error class="text-red-700" role="alert"></p></form></details>
-</div></section>{% endblock %}
+  <div class="panel panel-body">
+    <div class="mb-3 flex flex-wrap items-center justify-between gap-2">
+      <div>
+        <h2 class="panel-title">Verbindungsstatus</h2>
+        <p class="muted mt-1">Prüft Modellnamen und API-Keys kostenlos gegen den Katalog des Anbieters.</p>
+      </div>
+      <button type="button" class="btn btn-sm" id="connection-recheck">Erneut prüfen</button>
+    </div>
+    <div id="connection-status" class="space-y-2" data-mode="all"></div>
+  </div>
+
+  <div class="panel panel-body">
+    <h2 class="panel-title mb-4">Verbindungen</h2>
+    <div class="space-y-3">
+      {% for e in endpoints %}
+      <details class="rounded-xl border border-slate-200">
+        <summary class="flex cursor-pointer flex-wrap items-center gap-2 px-4 py-3 text-sm">
+          <span class="font-medium text-slate-800">{{ e.name }}</span>
+          <code class="text-xs text-slate-500">{{ e.model }}</code>
+          {% if not e.enabled %}<span class="pill pill-neutral">deaktiviert</span>{% endif %}
+          <span class="ml-auto" data-endpoint-status="{{ e.id }}"></span>
+        </summary>
+        <form data-api="/api/admin/endpoints" data-success="reload" class="space-y-3 border-t border-slate-100 p-4">
+          <input type="hidden" name="id" value="{{ e.id }}">
+          {% include 'endpoint_fields.html' %}
+          <div class="flex flex-wrap items-center gap-2">
+            <button class="btn btn-sm btn-primary">Speichern</button>
+            <button type="button" class="btn btn-sm" data-probe="{{ e.id }}">Verbindung testen (API-Aufruf)</button>
+            <span class="text-sm" data-probe-result role="status"></span>
+          </div>
+          <p data-error class="text-sm text-red-700 empty:hidden" role="alert"></p>
+        </form>
+      </details>
+      {% endfor %}
+      <details class="rounded-xl border border-dashed border-slate-300" {% if not endpoints %}open{% endif %}>
+        <summary class="cursor-pointer px-4 py-3 text-sm font-medium text-slate-800">Neue Verbindung</summary>
+        <form data-api="/api/admin/endpoints" data-success="reload" class="space-y-3 border-t border-slate-100 p-4">
+          {% set e = none %}{% include 'endpoint_fields.html' %}
+          <button class="btn btn-sm btn-primary">Verbindung anlegen</button>
+          <p data-error class="text-sm text-red-700 empty:hidden" role="alert"></p>
+        </form>
+      </details>
+    </div>
+  </div>
+
+  <div class="panel panel-body">
+    <h2 class="panel-title mb-4">Default und Rollenzuweisungen</h2>
+    <form data-api="/api/admin/settings" class="space-y-5">
+      <div class="grid gap-3 sm:grid-cols-3">
+        <label class="field"><span class="field-label">Default-Verbindung</span><select class="select select-bordered select-sm" name="endpoint_id"><option value="">Nicht zugewiesen</option>{% for e in endpoints %}<option value="{{ e.id }}" {% if system.endpoint_id == e.id %}selected{% endif %}>{{ e.name }}</option>{% endfor %}</select></label>
+        <label class="field"><span class="field-label">Maximale parallele Calls</span><input class="input input-bordered input-sm" type="number" min="1" max="16" name="parallelism" value="{{ system.parallelism }}"><span class="text-xs text-slate-500">Erfordert einen Worker-Neustart.</span></label>
+        <label class="field"><span class="field-label">Wechselkurs: 1 USD in EUR</span><input class="input input-bordered input-sm" type="number" min="0.1" max="10" step="0.0001" name="eur_per_usd" value="{{ system.eur_per_usd }}"><span class="text-xs text-slate-500">Anbieter melden USD. Default: EZB, 05.11.2026. Wird nicht automatisch aktualisiert.</span></label>
+      </div>
+      <div class="space-y-3">
+        <div>
+          <h3 class="text-sm font-semibold text-slate-900">Rollen</h3>
+          <p class="muted">Maximale Output-Tokens begrenzen die Ausgabe pro Aufruf einschließlich Reasoning. Ist der Wert zu klein, bricht das Modell vor der Antwort ab. Gilt für neue Simulationen.</p>
+        </div>
+        {% for role in ['moderator','orchestrator','watcher'] %}{% set assignment = system.roles.get(role,{}) %}
+        <div class="grid items-end gap-3 sm:grid-cols-4">
+          <span class="text-sm font-medium text-slate-800 sm:pb-1.5">{{ role | capitalize }}</span>
+          <label class="field"><span class="field-label">Verbindung</span><select class="select select-bordered select-sm" name="roles.{{ role }}.endpoint_id"><option value="">Globaler Default</option>{% for e in endpoints %}<option value="{{ e.id }}" {% if assignment.get('endpoint_id') == e.id %}selected{% endif %}>{{ e.name }}</option>{% endfor %}</select></label>
+          <label class="field"><span class="field-label">Modell</span><input class="input input-bordered input-sm" name="roles.{{ role }}.model" value="{{ assignment.get('model','') }}" placeholder="Modell der Verbindung" list="model-catalog" autocomplete="off" data-model-input></label>
+          <label class="field"><span class="field-label">Max. Output-Tokens</span><input class="input input-bordered input-sm" type="number" min="256" max="1000000" step="1" name="max_tokens.{{ role }}" value="{{ system.max_tokens[role] }}" required></label>
+        </div>
+        {% endfor %}
+        <div class="grid items-end gap-3 sm:grid-cols-4">
+          <span class="text-sm font-medium text-slate-800 sm:pb-1.5">Institutionen</span>
+          <p class="text-xs text-slate-500 sm:col-span-2 sm:pb-1.5">Verbindung und Modell je Institution unter „Akteure &amp; Prompts“.</p>
+          <label class="field"><span class="field-label">Max. Output-Tokens</span><input class="input input-bordered input-sm" type="number" min="256" max="1000000" step="1" name="max_tokens.agent" value="{{ system.max_tokens.agent }}" required></label>
+        </div>
+      </div>
+      <label class="field"><span class="field-label">Zusätzlich gesperrte Personennamen (JSON-Liste)</span><textarea class="textarea textarea-bordered font-mono text-xs" name="blocked_names" data-json>{{ system.blocked_names | tojson(indent=2) }}</textarea></label>
+      <button class="btn btn-sm btn-primary">Einstellungen speichern</button>
+      <p data-error class="text-sm text-red-700 empty:hidden" role="alert"></p>
+    </form>
+  </div>
+</section>
+{% endblock %}

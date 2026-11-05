@@ -1,17 +1,78 @@
-{% extends 'base.html' %}{% block content %}
-<div class="mb-8"><p class="text-sm text-teal-700 mb-2">Perspektiven verstehen. Kompromisse nachvollziehen.</p><h1 class="text-3xl font-semibold">Simulationen</h1></div>
-<div class="grid lg:grid-cols-5 gap-6">
-<section class="lg:col-span-3 card bg-white p-6"><h2 class="text-xl font-semibold mb-5">Neue Verhandlung</h2>
-<form id="new-simulation" class="space-y-5" data-api="/api/simulations" data-success="navigate">
-<label class="form-control gap-2"><span class="font-medium">Fragestellung</span><textarea name="question" class="textarea textarea-bordered text-base" required minlength="10" maxlength="10000">Wie können die Wartezeiten auf Facharzttermine innerhalb von fünf Jahren um 20 % reduziert werden, ohne die Gesundheitsausgaben um mehr als 5 % zu erhöhen?</textarea></label>
-<p class="text-sm text-slate-500">Ausschließlich Institutionen einbeziehen. Keine Einzelpersonen oder Personennamen nennen.</p>
-<fieldset><legend class="font-medium mb-3">Beteiligte Institutionen</legend><div class="grid sm:grid-cols-2 gap-3">
-{% for actor in actors if actor.profile.get("selectable", true) %}<label class="flex gap-3 items-center border rounded-lg p-3"><input class="checkbox checkbox-sm checkbox-success" type="checkbox" name="actors" value="{{ actor.id }}" {% if actor.id in default_selection %}checked{% endif %}><span>{{ actor.name }}{% if actor.profile.demo %}<span class="block text-xs text-amber-700">Vorläufiges Demoprofil</span>{% elif actor.profile.modeled %}<span class="block text-xs text-slate-500">Modellierter Entwurf</span>{% endif %}</span></label>{% endfor %}
-</div></fieldset>
-<div class="grid grid-cols-3 gap-3"><label class="form-control text-sm">Max. Runden<input class="input input-bordered mt-1" name="rounds" type="number" value="6" min="1" max="50" required></label><label class="form-control text-sm">Versuche je Statement<input class="input input-bordered mt-1" name="attempts" type="number" value="3" min="1" max="10" required></label><label class="form-control text-sm">Nachrichten je Institution / Gruppe<input class="input input-bordered mt-1" name="messages" type="number" value="3" min="1" max="10" required></label></div>
-<button class="btn bg-teal-800 text-white" type="submit"><span class="loading loading-spinner loading-sm hidden" data-loading></span>Verhandlung starten</button><p data-error class="text-red-700" role="alert"></p>
-</form></section>
-<section class="lg:col-span-2"><h2 class="text-xl font-semibold mb-4">Bisherige Verhandlungen</h2><div class="space-y-3">
-{% for sim in simulations %}<a class="card block bg-white p-5 hover:border-teal-700" href="/simulations/{{ sim.id }}"><span class="badge badge-ghost mb-3">{{ {'running':'Läuft','paused':'Pausiert','completed':'Abgeschlossen','awaiting_decision':'Entscheidung erforderlich','ended':'Beendet'}.get(sim.status,sim.status) }}</span><h3 class="font-medium">{{ sim.question if sim.state.verified else 'Institutionen und Eingaben werden geprüft' }}</h3><p class="text-sm text-slate-500 mt-3">Runde {{ sim.round }} · {{ sim.created_at.strftime('%d.%m.%Y %H:%M') }}</p></a>
-{% else %}<div class="border border-dashed rounded-xl p-8 text-slate-500">Noch keine Verhandlungen. Starte links die erste Simulation.</div>{% endfor %}</div></section>
-</div>{% endblock %}
+{% extends 'base.html' %}
+{% from '_icons.html' import actor_icon %}
+{% macro institution(actor) %}
+<label class="inst-option">
+  <input class="checkbox checkbox-sm checkbox-primary" type="checkbox" name="actors" value="{{ actor.id }}" {% if actor.id in default_selection %}checked data-default{% endif %}>
+  <span class="min-w-0 flex-1">
+    <span class="block truncate font-medium text-slate-800" title="{{ actor.name }}">{{ actor.name }}</span>
+    {% if actor.profile.demo %}<span class="block text-xs text-amber-700">Vorläufiges Demoprofil</span>{% endif %}
+  </span>
+  {{ actor_icon(actor.id, actor.name) }}
+</label>
+{% endmacro %}
+{% block content %}
+<div class="mb-6">
+  <p class="eyebrow mb-1">Perspektiven verstehen. Kompromisse nachvollziehen.</p>
+  <h1 class="text-2xl font-semibold text-slate-900">Simulationen</h1>
+</div>
+<div id="connection-status" class="mb-5 space-y-2 empty:hidden" data-mode="issues"></div>
+<div class="grid items-start gap-6 lg:grid-cols-5">
+  <section class="panel panel-body lg:col-span-3">
+    <h2 class="panel-title mb-5">Neue Verhandlung</h2>
+    <form id="new-simulation" class="space-y-6" data-api="/api/simulations" data-success="navigate">
+      <label class="field">
+        <span class="field-label">Fragestellung</span>
+        <textarea name="question" class="textarea textarea-bordered text-base leading-relaxed" required minlength="10" maxlength="10000">Wie können die Wartezeiten auf Facharzttermine innerhalb von fünf Jahren um 20 % reduziert werden, ohne die Gesundheitsausgaben um mehr als 5 % zu erhöhen?</textarea>
+        <span class="muted">Ausschließlich Institutionen einbeziehen. Keine Einzelpersonen oder Personennamen nennen.</span>
+      </label>
+      <fieldset>
+        <div class="mb-3 flex flex-wrap items-center justify-between gap-2">
+          <legend class="field-label">Beteiligte Institutionen <span id="selection-count" class="ml-1 font-normal text-slate-500"></span></legend>
+          <div class="flex gap-3 text-xs">
+            <button type="button" class="link-quiet" data-select="default">Standardauswahl</button>
+            <button type="button" class="link-quiet" data-select="all">Alle</button>
+            <button type="button" class="link-quiet" data-select="none">Keine</button>
+          </div>
+        </div>
+        <p class="eyebrow mb-2 text-slate-400">Bundesweit</p>
+        <div class="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
+          {% for actor in actors if actor.profile.get("selectable", true) and not actor.parent_id %}{{ institution(actor) }}{% endfor %}
+        </div>
+        <p class="eyebrow mb-2 mt-4 text-slate-400">Bundesländer</p>
+        <div class="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
+          {% for actor in actors if actor.profile.get("selectable", true) and actor.parent_id %}{{ institution(actor) }}{% endfor %}
+        </div>
+        <p class="muted mt-3">Alle Profile sind modellierte Entwürfe, keine offiziellen Positionen.</p>
+      </fieldset>
+      <div class="grid gap-3 sm:grid-cols-3">
+        <label class="field"><span class="field-label">Max. Runden</span><input class="input input-bordered" name="rounds" type="number" value="6" min="1" max="50" required></label>
+        <label class="field"><span class="field-label">Versuche je Statement</span><input class="input input-bordered" name="attempts" type="number" value="3" min="1" max="10" required></label>
+        <label class="field"><span class="field-label">Nachrichten je Institution</span><input class="input input-bordered" name="messages" type="number" value="3" min="1" max="10" required></label>
+      </div>
+      <div class="flex flex-wrap items-center gap-4">
+        <button class="btn btn-primary" type="submit"><span class="loading loading-spinner loading-sm hidden" data-loading></span>Verhandlung starten</button>
+        <span id="call-estimate" class="muted"></span>
+      </div>
+      <p data-error class="text-sm text-red-700 empty:hidden" role="alert"></p>
+    </form>
+  </section>
+  <section class="lg:col-span-2">
+    <h2 class="panel-title mb-4">Bisherige Verhandlungen</h2>
+    <div class="space-y-3">
+      {% set status_style = {'running':'pill-live','paused':'pill-warn','completed':'pill-good','awaiting_decision':'pill-warn','ended':'pill-neutral'} %}
+      {% for sim in simulations %}
+      <a class="panel block p-4 transition-colors hover:border-teal-600" href="/simulations/{{ sim.id }}">
+        <div class="mb-2 flex items-center justify-between gap-2">
+          <span class="pill {{ status_style.get(sim.status,'pill-neutral') }}">{{ {'running':'Läuft','paused':'Pausiert','completed':'Abgeschlossen','awaiting_decision':'Entscheidung erforderlich','ended':'Beendet'}.get(sim.status,sim.status) }}</span>
+          <span class="text-xs text-slate-500">{{ sim.created_at.strftime('%d.%m.%Y %H:%M') }}</span>
+        </div>
+        <h3 class="line-clamp-2 text-sm font-medium text-slate-800">{{ sim.question if sim.state.verified else 'Institutionen und Eingaben werden geprüft' }}</h3>
+        <p class="mt-2 text-xs text-slate-500">Runde {{ sim.round }} · {{ sim.snapshot.actors | length }} Institutionen</p>
+      </a>
+      {% else %}
+      <div class="rounded-2xl border border-dashed border-slate-300 p-8 text-center text-sm text-slate-500">Noch keine Verhandlungen. Starte hier die erste Simulation.</div>
+      {% endfor %}
+    </div>
+  </section>
+</div>
+{% endblock %}

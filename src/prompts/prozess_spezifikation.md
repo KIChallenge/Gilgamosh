@@ -48,7 +48,7 @@ Bewertungsskala des Orchestrators pro Statement:
 7. Orchestrator leitet freigegebene Statements an den Moderator weiter.
 8. **Moderator** erstellt Sammelstand und **Kompromissvorschlag**.
 9. **Abstimmung:** Agents stimmen über den Orchestrator ab: `zustimmen` / `tolerieren` / `ablehnen`. Der Orchestrator prüft die Stimmen gegen die Statuten (eine Zustimmung, die eine rote Linie verletzt, wird zurückgewiesen).
-   - **Konsens** = keine Ablehnung → Ergebnis → **Watcher-Bericht**.
+   - **Konsens** = keine gültige Ablehnung und mindestens die Hälfte der Institutionen stimmt zu oder toleriert → Ergebnis → **Watcher-Bericht**.
 
 ### Runde 2 bis N
 1. Sammelstand + Kompromissvorschlag der Vorrunde gehen an alle Agents.
@@ -70,5 +70,7 @@ Bewertungsskala des Orchestrators pro Statement:
 - Gruppen verhandeln reihum mit höchstens MAX_NACHRICHTEN zugestellten Nachrichten pro Institution. Einzelgruppen erstellen ohne internen Dialog ein eigenes Statement.
 - Der Watcher erstellt zusätzlich nach jeder abgeschlossenen Phase eine belegte Zusammenfassung für das Seitenpanel „Aktueller Stand“. Er greift nie in die Verhandlung ein. Die Zusammenfassungen werden nie als Agentenkontext verwendet.
 - Reset bewahrt sämtliche alten Nachrichten, Prüfungen, Trajectories und Berichte im Archiv; neue Kontexte enthalten keine alten Nachrichten.
+- Eine Ablehnung ist gültig, wenn der Orchestrator eine verletzte rote Linie der Institution benennt. Die Kennung bleibt intern, veröffentlicht wird nur die neutrale Begründung. Eine bestätigte Ablehnung kann nicht durch eine Enthaltung ersetzt werden.
+- Jeder Stakeholder erhält einen eigenen begrenzten Kontext statt des Gesamtverlaufs: eigener Verlauf, letzte Positionen der anderen, eigener Gruppenkanal, Sammelstand und letzte Abstimmung. Prüfrollen erhalten je Aufgabe nur die betroffenen Statuten. Der Watcher liest den Verlauf schrittweise. Die Gesamtdaten bleiben in Ereignissen und Aufrufprotokollen vollständig erhalten.
 - Fachliche Limits erzwingt die Runtime. Über ungültige Steuerrollen-Ausgaben oder Providerfehler darf sie keinen Konsens erfinden.
 - Technische Aufrufprotokolle sind ein geschützter interner Bereich für ungeprüfte Rohdaten; reguläre Ansichten und Exporte enthalten ausschließlich geprüfte Beiträge.

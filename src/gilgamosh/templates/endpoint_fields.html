@@ -1,3 +1,11 @@
-<div class="grid sm:grid-cols-2 gap-3"><label class="form-control">Bezeichnung<input class="input input-bordered" name="name" value="{{ e.name if e else '' }}" required></label><label class="form-control">Basis-URL<input class="input input-bordered" type="url" name="base_url" value="{{ e.base_url if e else 'https://openrouter.ai/api/v1' }}" required></label><label class="form-control">Modell<input class="input input-bordered" name="model" value="{{ e.model if e else '' }}" required placeholder="Anbieter/Modellkennung"></label><label class="form-control">Timeout (Sekunden)<input class="input input-bordered" type="number" min="5" max="600" name="timeout" value="{{ e.timeout if e else 120 }}" required></label></div>
-<label class="form-control">API-Key{% if e and e.secret %} · hinterlegt{% endif %}<input class="input input-bordered" type="password" name="api_key" autocomplete="new-password" placeholder="Leer lassen, um vorhandenen Key zu behalten"></label>
-<label class="flex gap-2 items-center"><input class="checkbox checkbox-sm" type="checkbox" name="enabled" {% if not e or e.enabled %}checked{% endif %}>Aktiviert</label>{% if e %}<label class="flex gap-2 items-center"><input class="checkbox checkbox-sm" type="checkbox" name="clear_key">Gespeicherten API-Key entfernen</label>{% endif %}
+<div class="grid gap-3 sm:grid-cols-2">
+  <label class="field"><span class="field-label">Bezeichnung</span><input class="input input-bordered input-sm" name="name" value="{{ e.name if e else '' }}" required></label>
+  <label class="field"><span class="field-label">Basis-URL</span><input class="input input-bordered input-sm" type="url" name="base_url" value="{{ e.base_url if e else 'https://openrouter.ai/api/v1' }}" required></label>
+  <label class="field"><span class="field-label">Modell</span><input class="input input-bordered input-sm" name="model" value="{{ e.model if e else '' }}" required placeholder="Anbieter/Modellkennung" list="model-catalog" autocomplete="off" data-model-input></label>
+  <label class="field"><span class="field-label">Timeout (Sekunden)</span><input class="input input-bordered input-sm" type="number" min="5" max="600" name="timeout" value="{{ e.timeout if e else 120 }}" required></label>
+</div>
+<label class="field"><span class="field-label">API-Key{% if e and e.secret %} · hinterlegt{% endif %}</span><input class="input input-bordered input-sm" type="password" name="api_key" autocomplete="new-password" placeholder="Leer lassen, um vorhandenen Key zu behalten"></label>
+<div class="flex flex-wrap gap-5 text-sm">
+  <label class="flex items-center gap-2"><input class="checkbox checkbox-sm checkbox-primary" type="checkbox" name="enabled" {% if not e or e.enabled %}checked{% endif %}>Aktiviert</label>
+  {% if e %}<label class="flex items-center gap-2"><input class="checkbox checkbox-sm" type="checkbox" name="clear_key">Gespeicherten API-Key entfernen</label>{% endif %}
+</div>

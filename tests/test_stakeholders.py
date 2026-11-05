@@ -87,3 +87,11 @@ def test_profile_sources_do_not_contain_other_institutions_statutes():
     foreign = profiles["finanzministerium"]["rote_linien"][0]
     assert foreign not in sv["system_prompt"]
     assert foreign not in sv["rote_linien"]
+
+
+def test_monograms_of_institutions_without_icon_stay_distinct():
+    from gilgamosh.stakeholders import initials
+
+    names = ["Vertretung der Vertragsärzt:innen", "Vertretung der Wahlärzt:innen", "Patient:innenvertretungen"]
+    assert [initials(n) for n in names] == ["Ve", "Wa", "Pa"]
+    assert initials("Public-Health-Fachvertretung") == "PH"

@@ -24,13 +24,13 @@ Du erhältst die Aufgabe im Feld `aufgabe`. Antworte **ausschließlich** im JSON
 ```
 
 ### `sammelstand_und_vorschlag`
-Du erhältst die Weiterleitung des Orchestrators und, ab Runde 2, das letzte Abstimmungsergebnis.
+Du erhältst `statements_dieser_runde`, `enthaltungen`, `fruehere_vorschlaege` mit ihren Stimmen und `letzte_abstimmung` mit den Ablehnungsgründen.
 ```json
 {
   "runde": 1,
   "sammelstand": {
     "gemeinsamkeiten": ["Punkte, bei denen breite Einigkeit besteht"],
-    "streitpunkte": [{"thema": "...", "positionen": {"Agent/Gruppe": "Position"}}],
+    "streitpunkte": [{"thema": "...", "positionen": [{"institution": "Name", "position": "..."}]}],
     "zugestaendnisse": ["Bereits gemachte Zugeständnisse"]
   },
   "kompromissvorschlag": "Konkreter, umsetzbarer Vorschlag",

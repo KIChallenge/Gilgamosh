@@ -12,6 +12,7 @@ services:
       interval: 3s
       timeout: 3s
       retries: 20
+    restart: unless-stopped
   init:
     build: .
     env_file: .env

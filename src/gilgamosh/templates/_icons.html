@@ -1,0 +1,8 @@
+{% macro actor_icon(id, name, extra='') %}
+{%- set url = icon_url(id) -%}
+{%- if url -%}
+<img class="inst-icon {{ extra }}" src="{{ url }}" alt="" loading="lazy">
+{%- else -%}
+<span class="inst-icon inst-monogram {{ extra }}" aria-hidden="true">{{ initials(name) }}</span>
+{%- endif -%}
+{% endmacro %}

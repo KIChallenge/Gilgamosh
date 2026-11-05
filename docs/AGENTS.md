@@ -79,15 +79,15 @@ START
 RUNDE (r = 1 … N)
  ├─ EINZELPHASE      je Agent: Agent.einzelphase → Orchestrator.statement_pruefen
  │                   Bewertung 0 → Hinweis an Agent, neuer Versuch (≤ MAX_RETRY), sonst Enthaltung
- ├─ VERTEILUNG       Orchestrator.verteilung_einzelantworten → an alle Agents (ohne Statuten)
+ ├─ VERTEILUNG       Runtime verteilt freigegebene Positionen an alle Agents (ohne Statuten)
  ├─ KOALITION        je Agent: Agent.koalitionsphase → Orchestrator.gruppe_pruefen
  │                   Freigabe → Kanal anlegen; Austritt → wieder Einzelgruppe
  ├─ GRUPPENPHASE     je Gruppe: Verhandlung im Kanal (≤ MAX_NACHRICHTEN je Agent)
  │                   dann je Agent: Einzelstatement → Orchestrator.statement_pruefen (wie oben)
- ├─ WEITERLEITUNG    Orchestrator.weiterleitung_moderator → Moderator
+ ├─ WEITERLEITUNG    Runtime leitet freigegebene Statements an den Moderator
  ├─ VORSCHLAG        Moderator.sammelstand_und_vorschlag → an alle Agents
  ├─ ABSTIMMUNG       je Agent: Agent.abstimmung → Orchestrator.statement_pruefen
- │                   → Orchestrator.abstimmung_auswerten
+ │                   → Runtime wertet die Abstimmung aus
  └─ ENTSCHEIDUNG     konsens = true          → ABSCHLUSS (konsens)
                      r < N                   → nächste Runde mit Sammelstand
                      r = N                   → ABSCHLUSS (teilkompromiss)
@@ -107,7 +107,7 @@ ABSCHLUSS
 - Ein Agent ist immer in **genau einer** Gruppe. Initial ist jeder Agent seine eigene Einzelgruppe.
 - Gruppen geben **nur Einzelstatements** ab, nie ein gemeinsames Statement.
 - `ablehnen` ist nur gültig, wenn der Orchestrator eine verletzte rote Linie bestätigt. Sonst wird die Stimme zurückgewiesen (zählt als Retry).
-- **Konsens** = keine gültige Stimme `ablehnen`. Enthaltungen blockieren nicht.
+- **Konsens** = keine gültige Stimme `ablehnen` und mindestens die Hälfte der Institutionen stimmt zu oder toleriert. Einzelne Enthaltungen blockieren nicht, eine Mehrheit von Enthaltungen ergibt aber keinen Konsens.
 - In Runde 1 gibt es keinen Sammelstand; `tragbar` ist dann `null`.
 
 ---
@@ -155,7 +155,7 @@ Jede Nachricht und jede Prüfung wird **unveränderlich** gespeichert (append-on
 - **Retry-Limit:** Nach `MAX_RETRY` Rückweisungen → Enthaltung, kein weiterer Aufruf.
 - **Nachrichtenlimit:** Die 4. Verhandlungsnachricht eines Agents wird nicht zugestellt.
 - **Gruppen:** Agent kann nie in zwei Gruppen sein; Austritt → Einzelgruppe.
-- **Konsens:** Eine gültige Ablehnung verhindert Konsens; Enthaltungen nicht.
+- **Konsens:** Eine gültige Ablehnung verhindert Konsens; einzelne Enthaltungen nicht; eine Mehrheit von Enthaltungen schon.
 - **Rundenlimit:** Nach Runde `N` ohne Konsens → Teilkompromiss, keine weitere Runde ohne Operator.
 - **Fortsetzen:** Gruppen und Kanäle bleiben, Rundenzähler zurückgesetzt, Watcher-Protokoll läuft weiter.
 - **Reset:** Alter Durchlauf archiviert; aktive Kontexte leer, Einzelgruppen; Frage, DB-Infos und Statuten bleiben.
@@ -172,4 +172,5 @@ Jede Nachricht und jede Prüfung wird **unveränderlich** gespeichert (append-on
 - Reset archiviert unveränderliche Nachrichten; nur aktive Kontexte werden geleert.
 - Der Watcher erstellt nach jeder Phase einen Zwischenstand ausschließlich für die Bedienoberfläche; niemals Rückkopplung an die verhandelnden Rollen.
 - Alle Akteure sind Institutionen oder institutionelle Interessenvertretungen. Keine Einzelpersonen, Personennamen, persönlichen Zuschreibungen oder Personenzitate in veröffentlichten Inhalten.
+- Jeder Stakeholder hat einen eigenen begrenzten Kontext; Prüfrollen sehen je Aufgabe nur die betroffenen Statuten. Details: `docs/development.md`.
 - Der erste Prototyp nutzt vorbereitete Daten und Systemprompts; Presse-Ingest und Recherchetools sind spätere Ausbaustufen.

@@ -52,6 +52,7 @@ class Vote(Output):
     agent: str
     stimme: Literal["zustimmen", "tolerieren", "ablehnen"]
     begruendung: str
+    verletzte_rote_linie: str | None
 
 
 class Review(Output):
@@ -73,9 +74,14 @@ class GroupReview(Output):
     kanal_id: str | None
 
 
+class ConflictPosition(Output):
+    institution: str
+    position: str
+
+
 class Conflict(Output):
     thema: str
-    positionen: dict[str, str]
+    positionen: list[ConflictPosition]
 
 
 class Summary(Output):
@@ -118,16 +124,54 @@ class Observation(Output):
     referenzen: list[int]
 
 
+class GroupInfo(Output):
+    gruppen_id: str
+    mitglieder: list[str]
+
+
+class Concession(Output):
+    agent: str
+    position: str
+    gegenleistung: str
+
+
+class VoteSummary(Output):
+    zustimmen: list[str]
+    tolerieren: list[str]
+    ablehnen: list[str]
+
+
+class RoundSummary(Output):
+    runde: int
+    gruppen: list[GroupInfo]
+    kernpunkte: list[str]
+    zugestaendnisse: list[Concession]
+    abstimmung: VoteSummary
+
+
+class TurningPoint(Output):
+    runde: int
+    phase: str
+    beschreibung: str
+
+
+class Statistics(Output):
+    runden: int
+    rueckweisungen: int
+    enthaltungen: int
+    gruppenwechsel: int
+
+
 class Report(Output):
     status: Literal["konsens", "teilkompromiss"]
     ergebnis: str
-    verlauf: list[dict]
+    verlauf: list[RoundSummary]
     koalitionsbildung: str
-    wendepunkte: list[dict]
+    wendepunkte: list[TurningPoint]
     entscheidungsfindung: str
     offene_konflikte: list[str]
     auffaelligkeiten: list[str]
-    statistik: dict[str, int]
+    statistik: Statistics
 
 
 class Safety(Output):
