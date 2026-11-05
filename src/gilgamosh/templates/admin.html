@@ -20,38 +20,42 @@
     </div>
     <div class="grid gap-3 lg:grid-cols-2">
       {% for actor in actors %}
-      <details class="rounded-xl border border-slate-200">
+      {% if actor.profile.get("selectable", true) %}
+      <details class="actor-card rounded-xl border border-slate-200">
         <summary class="flex cursor-pointer items-center gap-2 px-4 py-3 text-sm font-medium text-slate-800">
           {{ actor.name }}
-          {% if not actor.profile.get("selectable", true) %}<span class="pill pill-neutral">Gruppenknoten</span>{% endif %}
-          {% if actor.profile.demo %}<span class="pill pill-warn">Demoprofil</span>{% endif %}
           <span class="ml-auto flex min-w-0 items-center gap-2">
             {% if actor.model %}<span class="pill pill-neutral truncate">{{ actor.model }}</span>{% endif %}
             {{ actor_icon(actor.id, actor.name) }}
           </span>
         </summary>
-        <form data-api="/api/admin/actors" class="space-y-3 border-t border-slate-100 p-4">
+        <form data-api="/api/admin/actors" class="space-y-4 border-t border-slate-100 p-4">
           <input type="hidden" name="id" value="{{ actor.id }}">
-          <label class="field"><span class="field-label">Institutionsbezeichnung</span><input class="input input-bordered input-sm" name="name" value="{{ actor.name }}" required></label>
-          <label class="field"><span class="field-label">Übergeordnete Institution</span><select class="select select-bordered select-sm" name="parent_id"><option value="">Keine</option>{% for other in actors if other.id != actor.id %}<option value="{{ other.id }}" {% if actor.parent_id == other.id %}selected{% endif %}>{{ other.name }}</option>{% endfor %}</select></label>
-          <label class="field"><span class="field-label">Systemprompt</span><textarea class="textarea textarea-bordered text-sm" name="system_prompt" required>{{ actor.profile.system_prompt }}</textarea></label>
-          <label class="field"><span class="field-label">Rote Linien (JSON-Liste)</span><textarea class="textarea textarea-bordered font-mono text-xs" name="rote_linien" data-json>{{ actor.profile.rote_linien | tojson(indent=2) }}</textarea></label>
-          <label class="field"><span class="field-label">Verhandelbare Positionen (JSON)</span><textarea class="textarea textarea-bordered font-mono text-xs" name="verhandelbar" data-json>{{ actor.profile.verhandelbar | tojson(indent=2) }}</textarea></label>
-          <label class="field"><span class="field-label">DB-Infos und Quellen (JSON)</span><textarea class="textarea textarea-bordered font-mono text-xs" name="db_infos" data-json>{{ actor.profile.db_infos | tojson(indent=2) }}</textarea></label>
-          <div class="grid gap-3 sm:grid-cols-2">
-            <label class="field"><span class="field-label">Verbindung</span><select class="select select-bordered select-sm" name="endpoint_id"><option value="">Globaler Default</option>{% for e in endpoints %}<option value="{{ e.id }}" {% if actor.endpoint_id == e.id %}selected{% endif %}>{{ e.name }}</option>{% endfor %}</select></label>
-            <label class="field"><span class="field-label">Modell (leer = Modell der Verbindung)</span><input class="input input-bordered input-sm" name="model" value="{{ actor.model }}" list="model-catalog" autocomplete="off" data-model-input></label>
-          </div>
-          <div class="flex flex-wrap gap-5 text-sm">
-            <label class="flex items-center gap-2"><input class="checkbox checkbox-sm" type="checkbox" name="demo" {% if actor.profile.demo %}checked{% endif %}>Vorläufiges Demoprofil</label>
-            <label class="flex items-center gap-2"><input class="checkbox checkbox-sm checkbox-primary" type="checkbox" name="selectable" {% if actor.profile.get('selectable',true) %}checked{% endif %}>Als Verhandlungsakteur auswählbar</label>
-          </div>
-          {% if actor.profile.source_file %}<p class="text-xs text-slate-500">Quelle: {{ actor.profile.source_file }} · Modellierter Entwurf, fachlich zu prüfen.</p>{% endif %}
+          <input type="hidden" name="name" value="{{ actor.name }}">
+          <label class="field"><span class="field-label">Systemprompt</span><textarea class="textarea textarea-bordered actor-text h-[28rem]" name="system_prompt" required>{{ actor.profile.system_prompt }}</textarea></label>
+          <label class="field">
+            <span class="field-label">Rote Linien</span>
+            <span class="text-xs text-slate-500">Eine pro Zeile. Die Kennung am Anfang (R1:, R2: …) bitte behalten, darauf verweist die Prüfung der Abstimmung.</span>
+            <textarea class="textarea textarea-bordered actor-text h-72" name="rote_linien" data-lines required>{{ actor.profile.rote_linien | join('\n') }}</textarea>
+          </label>
+          <label class="field">
+            <span class="field-label">Verhandelbare Positionen</span>
+            <span class="text-xs text-slate-500">Eine pro Zeile, wichtigste zuerst. Die Reihenfolge legt die Priorität fest.</span>
+            <textarea class="textarea textarea-bordered actor-text h-72" name="verhandelbar" data-priorities>{{ actor.profile.verhandelbar | sort(attribute='prioritaet') | map(attribute='position') | join('\n') }}</textarea>
+          </label>
+          <details class="text-sm">
+            <summary class="cursor-pointer font-medium text-slate-600">Modell (optional)</summary>
+            <div class="mt-3 grid gap-3 sm:grid-cols-2">
+              <label class="field"><span class="field-label">Verbindung</span><select class="select select-bordered select-sm" name="endpoint_id"><option value="">Globaler Default</option>{% for e in endpoints %}<option value="{{ e.id }}" {% if actor.endpoint_id == e.id %}selected{% endif %}>{{ e.name }}</option>{% endfor %}</select></label>
+              <label class="field"><span class="field-label">Modell (leer = Modell der Verbindung)</span><input class="input input-bordered input-sm" name="model" value="{{ actor.model }}" list="model-catalog" autocomplete="off" data-model-input></label>
+            </div>
+          </details>
           {% if not icon_url(actor.id) %}<p class="text-xs text-slate-500">Kein Icon hinterlegt. Datei: src/assets/icons/{{ actor.id }}.png</p>{% endif %}
           <button class="btn btn-sm btn-primary">Profil speichern</button>
           <p data-error class="text-sm text-red-700 empty:hidden" role="alert"></p>
         </form>
       </details>
+      {% endif %}
       {% endfor %}
     </div>
   </div>

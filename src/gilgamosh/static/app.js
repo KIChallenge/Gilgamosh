@@ -85,6 +85,9 @@ for (const form of document.querySelectorAll('form[data-api]')) {
         if (input.name === 'actors') continue;
         let value = input.type === 'checkbox' ? input.checked : input.value;
         if (input.hasAttribute('data-json')) value = JSON.parse(value);
+        const lines = () => value.split('\n').map(line => line.trim()).filter(Boolean);
+        if (input.hasAttribute('data-lines')) value = lines();
+        if (input.hasAttribute('data-priorities')) value = lines().map((position, index) => ({position, prioritaet: index + 1}));
         if (input.type === 'number') value = Number(value);
         if (input.name.endsWith('endpoint_id') || input.name === 'parent_id') value ||= null;
         const parts = input.name.split('.'); let target = data;
@@ -169,5 +172,14 @@ document.querySelector('#connection-recheck')?.addEventListener('click', checkCo
   });
   update();
 })();
+
+const themeToggle = document.querySelector('#theme-toggle');
+themeToggle.checked = document.documentElement.dataset.theme === 'gilgamosh-dark';
+themeToggle.addEventListener('change', () => {
+  const dark = themeToggle.checked;
+  document.documentElement.dataset.theme = dark ? 'gilgamosh-dark' : 'gilgamosh';
+  try { localStorage.setItem('theme', dark ? 'dark' : 'light'); } catch { /* the choice lasts for this page */ }
+  window.dispatchEvent(new Event('themechange'));
+});
 
 checkConnections();

@@ -52,6 +52,8 @@ def test_live_simulation_to_export(app, monkeypatch):
             page = browser.new_page(viewport={"width": 1512, "height": 1100})
             page.on("pageerror", lambda error: errors.append(str(error)))
             page.goto(f"http://127.0.0.1:{server.server_port}/login")
+            expect(page.locator(".app-logo").first).to_be_visible()
+            page.screenshot(path="test-results/login.png")
             page.get_by_label("Benutzername").fill("admin")
             page.get_by_label("Passwort").fill("test-password-long-enough")
             page.get_by_role("button", name="Anmelden").click()
@@ -62,6 +64,24 @@ def test_live_simulation_to_export(app, monkeypatch):
             page.screenshot(path="test-results/admin-models.png", full_page=True)
             page.get_by_role("tab", name="Akteure & Prompts").click()
             page.screenshot(path="test-results/admin-actors.png", full_page=True)
+            # Opening a profile gives readable, wide text fields; saving keeps the statutes intact.
+            card = page.locator("details.actor-card", has_text="Land Wien")
+            card.locator("summary").first.click()
+            prompt = card.get_by_label("Systemprompt")
+            expect(prompt).to_be_visible()
+            assert prompt.bounding_box()["height"] > 400 and prompt.bounding_box()["width"] > 800
+            lines = card.locator('textarea[name="rote_linien"]')
+            assert lines.input_value().startswith("R1: ")
+            positions = card.locator('textarea[name="verhandelbar"]')
+            positions.fill("Erste Position\n\n  Zweite Position  ")
+            page.screenshot(path="test-results/admin-actor-open.png", full_page=True)
+            card.get_by_role("button", name="Profil speichern").click()
+            expect(page.locator("#notification")).to_contain_text("Gespeichert")
+            page.reload()
+            card = page.locator("details.actor-card", has_text="Land Wien")
+            card.locator("summary").first.click()
+            expect(card.locator('textarea[name="verhandelbar"]')).to_have_value("Erste Position\nZweite Position")
+            page.goto(f"http://127.0.0.1:{server.server_port}/admin")
             page.get_by_role("link", name="Simulationen", exact=True).click()
             expect(page.get_by_label("Max. Runden")).to_have_value("6")
             page.screenshot(path="test-results/index.png", full_page=True)
@@ -96,11 +116,43 @@ def test_live_simulation_to_export(app, monkeypatch):
             expect(page.locator(".stakeholder-coalition")).to_have_count(2)
             expect(page.locator("#timeline th", has_text="Gruppenverhandlung").first).to_be_visible()
             expect(page.get_by_text("Kosten nach Rolle")).to_have_count(0)
+            # The navigation stays visible while scrolling, without covering the side panel.
+            page.mouse.wheel(0, 900)
+            page.wait_for_timeout(300)
+            assert page.evaluate("window.scrollY") > 0
+            header = page.locator("header").bounding_box()
+            assert header["y"] == 0
+            assert page.locator(".side-panel").bounding_box()["y"] >= header["height"]
+            page.screenshot(path="test-results/sticky-header.png")
+            page.evaluate("window.scrollTo(0, 0)")
             # The side panel scrolls on its own.
             assert page.locator(".side-panel").evaluate("p => getComputedStyle(p).overflowY") == "auto"
             # Watcher sections start collapsed.
             assert page.locator("#watcher details[open]").count() == 0
             page.screenshot(path="test-results/simulation-done.png", full_page=True)
+            # Dark mode: applies at once, repaints the charts and survives a reload.
+            assert page.locator(".app-logo").first.is_visible()
+            light_body = page.evaluate("getComputedStyle(document.body).backgroundColor")
+            page.locator("#theme-toggle").check(force=True)
+            assert page.evaluate("document.documentElement.dataset.theme") == "gilgamosh-dark"
+            assert page.evaluate("getComputedStyle(document.body).backgroundColor") != light_body
+            expect(page.locator("#vote-chart")).to_be_visible()
+            page.wait_for_timeout(300)
+            page.screenshot(path="test-results/dark-overview.png", full_page=True)
+            page.get_by_role("tab", name="Verlauf", exact=True).click()
+            page.locator('[data-flow="1:1:groups"]').click()
+            page.wait_for_timeout(300)
+            page.screenshot(path="test-results/dark-flow.png", full_page=True)
+            page.reload()
+            assert page.evaluate("document.documentElement.dataset.theme") == "gilgamosh-dark"
+            assert page.locator("#theme-toggle").is_checked()
+            page.goto(f"http://127.0.0.1:{server.server_port}/admin")
+            page.locator("details.actor-card").first.locator("summary").first.click()
+            page.wait_for_timeout(300)
+            page.screenshot(path="test-results/dark-admin.png", full_page=True)
+            page.go_back()
+            page.locator("#theme-toggle").uncheck(force=True)
+            page.get_by_role("tab", name="Überblick", exact=True).click()
             # The flow diagram starts collapsed and opens on click.
             page.get_by_role("tab", name="Verlauf", exact=True).click()
             expect(page.locator(".flow-box").first).to_be_visible()

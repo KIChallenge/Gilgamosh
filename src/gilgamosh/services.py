@@ -106,10 +106,16 @@ def import_actors(session, items):
             raise PublicError("Unbekannte Verbindung.")
         if item.parent_id == item.id:
             raise PublicError("Eine Institution kann nicht ihre eigene übergeordnete Institution sein.")
-        if item.selectable and not item.rote_linien:
+        existing = session.get(Actor, item.id)
+        # Forms send only the fields they show; what they leave out keeps its stored value.
+        selectable = (
+            existing.profile.get("selectable", True)
+            if existing and "selectable" not in item.model_fields_set
+            else item.selectable
+        )
+        if selectable and not item.rote_linien:
             raise PublicError("Verhandelnde Institutionen benötigen mindestens eine rote Linie.")
         data = item.model_dump()
-        existing = session.get(Actor, item.id)
         fields = (
             "system_prompt",
             "rote_linien",
@@ -140,7 +146,8 @@ def import_actors(session, items):
     for item in values:
         if item.parent_id and not session.get(Actor, item.parent_id):
             raise PublicError("Übergeordnete Institution fehlt im Import oder in der Datenbank.")
-        session.get(Actor, item.id).parent_id = item.parent_id
+        if "parent_id" in item.model_fields_set:
+            session.get(Actor, item.id).parent_id = item.parent_id
     session.flush()
     for item in values:
         seen, current = set(), session.get(Actor, item.id)

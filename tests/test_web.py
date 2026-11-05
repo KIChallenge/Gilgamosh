@@ -5,7 +5,7 @@ from sqlalchemy import select
 
 from gilgamosh import connections
 from gilgamosh.llm import MAX_OUTPUT_TOKENS, Gateway, fake_response
-from gilgamosh.models import Call, Command, Endpoint, Job, Prompt, Setting, Simulation
+from gilgamosh.models import Actor, Call, Command, Endpoint, Job, Prompt, Setting, Simulation
 from gilgamosh.services import latest_prompts, sync_prompts, text_hash
 from gilgamosh.worker import claim
 
@@ -308,3 +308,44 @@ def test_simulation_without_budget_in_snapshot_uses_the_default(simulation, drai
         assert {c.request["max_tokens"] for c in s.scalars(select(Call).where(Call.simulation_id == sid))} == {
             MAX_OUTPUT_TOKENS
         }
+
+
+def test_profile_form_keeps_everything_it_does_not_show(app, client, factory):
+    with factory.begin() as s:
+        actor = s.get(Actor, "land_wien")
+        profile = {**actor.profile, "db_infos": [{"quelle": "manuell"}]}
+        actor.profile = profile
+    response = client.post(
+        "/api/admin/actors",
+        json={
+            "id": "land_wien",
+            "name": "Land Wien",
+            "system_prompt": "Neuer Prompt mit genug Text.",
+            "rote_linien": ["R1: Neue Linie"],
+            "verhandelbar": [{"position": "Wichtig", "prioritaet": 1}, {"position": "Weniger", "prioritaet": 2}],
+            "endpoint_id": None,
+            "model": "",
+        },
+    )
+    assert response.status_code == 200
+    with factory() as s:
+        actor = s.get(Actor, "land_wien")
+        assert actor.parent_id == "bundeslaender"
+        assert actor.profile["db_infos"] == [{"quelle": "manuell"}]
+        assert actor.profile["selectable"] is True and actor.profile["source_file"]
+        assert actor.profile["system_prompt"] == "Neuer Prompt mit genug Text."
+        assert actor.profile["rote_linien"] == ["R1: Neue Linie"]
+        assert actor.profile["verhandelbar"][1] == {"position": "Weniger", "prioritaet": 2}
+
+
+def test_profile_form_shows_only_the_simplified_fields(client):
+    page = client.get("/admin").text
+    form = page[page.index('name="id" value="land_wien"') :]
+    form = form[: form.index("</form>")]
+    for name in ("system_prompt", "rote_linien", "verhandelbar"):
+        assert f'name="{name}"' in form
+    for name in ("parent_id", "db_infos", "demo", "selectable"):
+        assert f'name="{name}"' not in form
+    # Statutes are editable as plain lines, not as JSON.
+    assert "R1: " in form and "data-json" not in form and "[&#34;" not in form
+    assert 'value="bundeslaender"' not in page.split("Institutionen importieren")[0]
