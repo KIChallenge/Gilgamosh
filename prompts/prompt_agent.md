@@ -48,7 +48,16 @@ Du erhältst die freigegebenen Einzelantworten aller Agents und die aktuelle Gru
 ```
 
 ### `gruppenphase`
-Du verhandelst im Gruppenkanal mit deinen Gruppenmitgliedern. Gib danach dein **eigenes** Einzelstatement ab:
+Du verhandelst im Gruppenkanal mit deinen Gruppenmitgliedern. Du darfst **höchstens 3 Nachrichten** pro Gruppenphase senden; nutze sie für konkrete Vorschläge und Zugeständnisse. Jede Verhandlungsnachricht hat dieses Format:
+```json
+{
+  "agent": "{{AGENT_NAME}}",
+  "gruppe": "Gruppen-ID",
+  "nachricht_nr": 1,
+  "inhalt": "Vorschlag, Rückfrage oder Zugeständnis an die Gruppe"
+}
+```
+Gib danach dein **eigenes** Einzelstatement ab:
 ```json
 {
   "agent": "{{AGENT_NAME}}",
