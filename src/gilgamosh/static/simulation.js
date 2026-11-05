@@ -20,11 +20,11 @@
   };
   // Validated with the dataviz palette check; text labels and glyphs carry identity alongside color.
   const VOTES = {
-    zustimmen: {label: 'Zustimmung', glyph: '✓', color: '#1baf7a', cls: 'marker-yes'},
-    tolerieren: {label: 'Tolerierung', glyph: '~', color: '#2a78d6', cls: 'marker-tolerate'},
-    nachbessern: {label: 'Nachbesserung', glyph: '↻', color: '#eda100', cls: 'marker-revise'},
-    ablehnen: {label: 'Ablehnung', glyph: '✕', color: '#e34948', cls: 'marker-no'},
-    enthaltung: {label: 'Enthaltung', glyph: '○', color: '#898781', cls: 'marker-abstain'}
+    zustimmen: {label: 'Zustimmung', glyph: '✓', color: 'yes', cls: 'marker-yes'},
+    tolerieren: {label: 'Tolerierung', glyph: '~', color: 'tolerate', cls: 'marker-tolerate'},
+    nachbessern: {label: 'Nachbesserung', glyph: '↻', color: 'revise', cls: 'marker-revise'},
+    ablehnen: {label: 'Ablehnung', glyph: '✕', color: 'no', cls: 'marker-no'},
+    enthaltung: {label: 'Enthaltung', glyph: '○', color: 'abstain', cls: 'marker-abstain'}
   };
   const TIMELINE_STEPS = [['individual', 'Einzelposition'], ['coalition', 'Koalition'], ['groups', 'Gruppenverhandlung'], ['proposal', 'Kompromissvorschlag'], ['vote', 'Abstimmung']];
 
@@ -105,13 +105,19 @@
 
   /* ---------- Coalitions ---------- */
   // Color follows the coalition, not its rank: the first-seen order stays fixed for the whole run.
-  const COALITION_COLORS = ['#2a78d6', '#eb6834', '#1baf7a', '#eda100', '#e87ba4', '#008300', '#6250d6', '#e34948'];
+  const COALITION_COLORS = {
+    light: ['#2a78d6', '#eb6834', '#1baf7a', '#eda100', '#e87ba4', '#008300', '#6250d6', '#e34948'],
+    dark: ['#3987e5', '#d95926', '#199e70', '#c98500', '#d55181', '#008300', '#9085e9', '#e66767']
+  };
+  const isDark = () => document.documentElement.dataset.theme === 'gilgamosh-dark';
+  const cssVar = name => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+  const onColor = color => ['#eda100', '#c98500'].includes(color) ? '#0b0b0b' : '#ffffff';
   function coalitions() {
     const registry = new Map();
     const add = (id, members) => {
       if (members.length < 2 || registry.has(id)) return;
       const index = registry.size;
-      registry.set(id, {id, label: `G${index + 1}`, color: COALITION_COLORS[index] || '#64748b'});
+      registry.set(id, {id, label: `G${index + 1}`, color: COALITION_COLORS[isDark() ? 'dark' : 'light'][index] || '#64748b'});
     };
     for (const e of state.events) if (e.kind === 'membership') for (const [id, members] of Object.entries(e.payload.gruppen)) add(id, members);
     for (const [id, members] of Object.entries(state.groups)) add(id, members);
@@ -120,7 +126,7 @@
   function coalitionChip(info, cls = '') {
     const chip = node('span', info.label, `marker marker-coalition pointer-events-none ${cls}`);
     chip.style.backgroundColor = info.color;
-    chip.style.color = info.color === '#eda100' ? '#0b0b0b' : '#ffffff';
+    chip.style.color = onColor(info.color);
     return chip;
   }
   function coalitionBox(info, cls = '') {
@@ -298,7 +304,7 @@
               const info = registry.get(multi[position][0]);
               const chip = marker('marker-coalition', info.label, `Koalition ${info.label}: ${multi[position][1].map(institution).join(', ')}`, membership.id);
               chip.style.backgroundColor = info.color;
-              chip.style.color = info.color === '#eda100' ? '#0b0b0b' : '#ffffff';
+              chip.style.color = onColor(info.color);
               td.append(chip);
             }
           } else if (step === 'vote') {
@@ -350,7 +356,7 @@
       legend.append(item);
     }
     if (!window.Chart) return;
-    const data = {labels: rows.map(r => r.label), datasets: [{data: rows.map(r => r.value), backgroundColor: rows.map(r => r.color), borderColor: '#ffffff', borderWidth: 2, hoverOffset: 4}]};
+    const data = {labels: rows.map(r => r.label), datasets: [{data: rows.map(r => r.value), backgroundColor: rows.map(r => r.color), borderColor: `rgb(${cssVar('--surface')})`, borderWidth: 2, hoverOffset: 4}]};
     if (charts[canvasId]) {
       charts[canvasId].data = data;
       charts[canvasId].update('none');
@@ -380,7 +386,7 @@
       note = `Runde ${round.round}: ${round.payload.konsens ? 'Konsens' : 'kein Konsens'}`;
     }
     $('#vote-chart-note').textContent = note;
-    pie('#vote-chart', '#vote-legend', Object.entries(VOTES).map(([key, v]) => ({label: v.label, color: v.color, value: counts[key]})), value => String(value), 'Die Verteilung erscheint mit der ersten Stimme.');
+    pie('#vote-chart', '#vote-legend', Object.entries(VOTES).map(([key, v]) => ({label: v.label, color: cssVar(`--vote-${v.color}`), value: counts[key]})), value => String(value), 'Die Verteilung erscheint mit der ersten Stimme.');
   }
 
   function renderKpis() {
@@ -1022,6 +1028,14 @@
       try {await api(`${base}/control`, {action: command.dataset.command, key: crypto.randomUUID()}); await refresh();}
       catch (exc) {notify(exc.message);} finally {command.disabled = false;}
     }
+  });
+
+  // Everything that computed colors once is rebuilt for the other palette.
+  window.addEventListener('themechange', () => {
+    if (!state) return;
+    timelineKey = ''; rolesKey = ''; stakeholdersKey = ''; coalitionsKey = ''; flowKey = '';
+    for (const key of Object.keys(charts)) {charts[key].destroy(); delete charts[key];}
+    render();
   });
 
   async function start() {

@@ -2,17 +2,147 @@
 @tailwind components;
 @tailwind utilities;
 
-:root { color-scheme: light; }
-body { background: #f5f7f9; color: #1e293b; font-family: system-ui, -apple-system, "Segoe UI", sans-serif; }
+:root {
+  color-scheme: light;
+  --surface: 255 255 255;
+  --page: 245 247 249;
+  --vote-yes: #1baf7a;
+  --vote-tolerate: #2a78d6;
+  --vote-revise: #eda100;
+  --vote-no: #e34948;
+  --vote-abstain: #898781;
+  --slate-50: 248 250 252;
+  --slate-100: 241 245 249;
+  --slate-200: 226 232 240;
+  --slate-300: 203 213 225;
+  --slate-400: 148 163 184;
+  --slate-500: 100 116 139;
+  --slate-600: 71 85 105;
+  --slate-700: 51 65 85;
+  --slate-800: 30 41 59;
+  --slate-900: 15 23 42;
+  --slate-950: 2 6 23;
+  --teal-50: 240 253 250;
+  --teal-100: 204 251 241;
+  --teal-200: 153 246 228;
+  --teal-300: 94 234 212;
+  --teal-400: 45 212 191;
+  --teal-500: 20 184 166;
+  --teal-600: 13 148 136;
+  --teal-700: 15 118 110;
+  --teal-800: 17 94 89;
+  --teal-900: 19 78 74;
+  --teal-950: 4 47 46;
+  --amber-50: 255 251 235;
+  --amber-100: 254 243 199;
+  --amber-200: 253 230 138;
+  --amber-300: 252 211 77;
+  --amber-400: 251 191 36;
+  --amber-500: 245 158 11;
+  --amber-600: 217 119 6;
+  --amber-700: 180 83 9;
+  --amber-800: 146 64 14;
+  --amber-900: 120 53 15;
+  --amber-950: 69 26 3;
+  --red-50: 254 242 242;
+  --red-100: 254 226 226;
+  --red-200: 254 202 202;
+  --red-300: 252 165 165;
+  --red-400: 248 113 113;
+  --red-500: 239 68 68;
+  --red-600: 220 38 38;
+  --red-700: 185 28 28;
+  --red-800: 153 27 27;
+  --red-900: 127 29 29;
+  --red-950: 69 10 10;
+  --blue-50: 239 246 255;
+  --blue-100: 219 234 254;
+  --blue-200: 191 219 254;
+  --blue-300: 147 197 253;
+  --blue-400: 96 165 250;
+  --blue-500: 59 130 246;
+  --blue-600: 37 99 235;
+  --blue-700: 29 78 216;
+  --blue-800: 30 64 175;
+  --blue-900: 30 58 138;
+  --blue-950: 23 37 84;
+}
+[data-theme="gilgamosh-dark"] {
+  color-scheme: dark;
+  --surface: 20 28 43;
+  --page: 12 19 32;
+  --vote-yes: #199e70;
+  --vote-tolerate: #3987e5;
+  --vote-revise: #c98500;
+  --vote-no: #d55181;
+  --vote-abstain: #898781;
+  --slate-50: 27 38 56;
+  --slate-100: 37 50 71;
+  --slate-200: 47 62 86;
+  --slate-300: 63 79 106;
+  --slate-400: 134 149 171;
+  --slate-500: 152 166 187;
+  --slate-600: 173 185 203;
+  --slate-700: 198 208 222;
+  --slate-800: 221 228 238;
+  --slate-900: 239 243 248;
+  --slate-950: 248 250 252;
+  --teal-50: 16 48 46;
+  --teal-100: 21 80 75;
+  --teal-200: 23 106 99;
+  --teal-300: 27 130 121;
+  --teal-400: 42 167 155;
+  --teal-500: 47 181 168;
+  --teal-600: 52 195 181;
+  --teal-700: 13 127 118;
+  --teal-800: 111 227 212;
+  --teal-900: 165 240 228;
+  --teal-950: 212 248 242;
+  --amber-50: 51 38 12;
+  --amber-100: 74 55 16;
+  --amber-200: 106 79 21;
+  --amber-300: 138 104 25;
+  --amber-400: 201 138 28;
+  --amber-500: 224 161 31;
+  --amber-600: 240 182 61;
+  --amber-700: 246 200 104;
+  --amber-800: 249 216 143;
+  --amber-900: 252 231 184;
+  --amber-950: 254 243 217;
+  --red-50: 58 22 24;
+  --red-100: 84 29 32;
+  --red-200: 122 42 46;
+  --red-300: 160 56 61;
+  --red-400: 214 92 96;
+  --red-500: 230 103 103;
+  --red-600: 238 133 137;
+  --red-700: 244 163 166;
+  --red-800: 248 189 191;
+  --red-900: 251 213 214;
+  --red-950: 253 234 234;
+  --blue-50: 18 38 63;
+  --blue-100: 24 52 86;
+  --blue-200: 32 73 122;
+  --blue-300: 42 96 160;
+  --blue-400: 79 143 220;
+  --blue-500: 106 163 230;
+  --blue-600: 139 184 236;
+  --blue-700: 168 202 241;
+  --blue-800: 192 218 245;
+  --blue-900: 215 231 248;
+  --blue-950: 235 243 252;
+}
+[data-theme="gilgamosh-dark"] .app-logo { filter: invert(1); }
+body { background: rgb(var(--page)); color: rgb(var(--slate-800)); font-family: system-ui, -apple-system, "Segoe UI", sans-serif; }
 pre { white-space: pre-wrap; overflow-wrap: anywhere; }
 textarea { min-height: 6rem; }
 
 @layer components {
   .shell { @apply mx-auto w-full max-w-[1500px] px-4 lg:px-8; }
-  .panel { @apply rounded-2xl border border-slate-200 bg-white shadow-sm; }
+  .panel { @apply rounded-2xl border border-slate-200 bg-surface shadow-sm; }
   .panel-body { @apply p-5 lg:p-6; }
   .panel-title { @apply text-base font-semibold text-slate-900; }
-  .eyebrow { @apply text-xs font-semibold uppercase tracking-wider text-teal-700; }
+  .eyebrow { @apply text-xs font-semibold uppercase tracking-wider text-teal-800; }
   .muted { @apply text-sm text-slate-500; }
   .field { @apply flex flex-col gap-1.5; }
   .field-label { @apply text-sm font-medium text-slate-700; }
@@ -49,49 +179,55 @@ textarea { min-height: 6rem; }
 
   .tl-table { @apply w-full border-separate border-spacing-0 text-xs; }
   .tl-table th, .tl-table td { @apply border-b border-slate-100 px-1 py-1.5 text-center align-middle; }
-  .tl-table thead th { @apply whitespace-nowrap bg-white px-2 font-medium text-slate-500; }
-  .tl-table .tl-row-head { @apply sticky left-0 z-10 w-60 min-w-44 max-w-60 border-r border-slate-200 bg-white pr-3 text-left font-normal; }
+  .tl-table thead th { @apply whitespace-nowrap bg-surface px-2 font-medium text-slate-500; }
+  .tl-table .tl-row-head { @apply sticky left-0 z-10 w-60 min-w-44 max-w-60 border-r border-slate-200 bg-surface pr-3 text-left font-normal; }
   .tl-table .tl-round { @apply border-l border-slate-200 font-semibold text-slate-700; }
   .tl-table .tl-round-first { @apply border-l border-slate-200; }
   .tl-table .tl-now { @apply bg-teal-50; }
   .marker { @apply inline-flex h-6 w-6 items-center align-middle justify-center rounded-full text-[11px] font-bold leading-none transition-transform hover:scale-125 focus-visible:scale-125 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-slate-900; }
   .marker-position { @apply bg-slate-500 text-white; }
-  .marker-concession { @apply rounded-md bg-slate-800 text-white; }
+  .marker-concession { @apply rounded-md bg-slate-800 text-surface; }
   .marker-proposal { @apply rounded-md bg-teal-700 text-white; }
-  .marker-abstain { @apply border-2 border-slate-400 bg-white text-slate-500; }
-  .marker-yes { @apply bg-[#1baf7a] text-white; }
-  .marker-tolerate { @apply bg-[#2a78d6] text-white; }
-  .marker-revise { @apply bg-[#eda100] text-[#0b0b0b]; }
-  .marker-no { @apply bg-[#e34948] text-white; }
+  .marker-abstain { @apply border-2 border-slate-400 bg-surface text-slate-500; }
+  .marker-yes { @apply text-white; background: var(--vote-yes); }
+  .marker-tolerate { @apply text-white; background: var(--vote-tolerate); }
+  .marker-revise { color: #0b0b0b; background: var(--vote-revise); }
+  .marker-no { @apply text-white; background: var(--vote-no); }
   .marker-group { @apply rounded-md bg-slate-100 px-1 text-slate-700; }
 
   .swatch { @apply inline-block h-2.5 w-2.5 shrink-0 rounded-sm; }
-  .viz-tooltip { @apply pointer-events-none fixed z-50 hidden max-w-xs rounded-lg bg-slate-900 px-3 py-2 text-xs leading-snug text-white shadow-lg; }
+  .viz-tooltip { @apply pointer-events-none fixed z-50 hidden max-w-xs rounded-lg bg-ink px-3 py-2 text-xs leading-snug text-white shadow-lg; }
 
   .inst-icon { @apply h-8 w-11 shrink-0 rounded-md border border-slate-200 bg-white object-contain p-0.5; }
   .inst-monogram { @apply flex items-center justify-center border-dashed bg-slate-50 p-0 text-[11px] font-semibold text-slate-500; }
   .inst-icon-sm { @apply h-6 w-8; }
   .inst-corner { @apply absolute right-2.5 top-2.5 h-12 w-12; }
-  .stakeholder { @apply relative flex min-h-28 flex-col gap-1 rounded-xl border border-slate-200 bg-white p-3 text-sm; }
+  .stakeholder { @apply relative flex min-h-28 flex-col gap-1 rounded-xl border border-slate-200 bg-surface p-3 text-sm; }
   .stakeholder-active { @apply border-teal-600 ring-1 ring-teal-600; }
+
+  /* An opened profile spans the whole width, so that long prompts stay readable. */
+  .actor-card[open] { @apply lg:col-span-2; }
+  .actor-text { @apply w-full text-sm leading-relaxed; }
+
+  .theme-switch { @apply flex items-center gap-1.5 text-slate-500; }
 
   .stakeholder-compact { @apply min-h-24; }
   .role-mark { @apply flex items-center justify-center border-teal-200 bg-teal-50 p-0 text-sm font-bold text-teal-800; }
   .marker-coalition { @apply rounded-md; }
-  .coalition-box { @apply rounded-lg border border-slate-200 bg-white p-3; border-left: 4px solid var(--coalition); }
+  .coalition-box { @apply rounded-lg border border-slate-200 bg-surface p-3; border-left: 4px solid var(--coalition); }
   .stakeholder-coalition { border-left: 4px solid var(--coalition); }
 
   .flow-row { @apply flex flex-wrap items-stretch gap-x-1 gap-y-2; }
   .flow-box { @apply relative flex min-w-44 flex-1 basis-44 flex-col gap-1 rounded-xl border border-dashed border-slate-300 bg-slate-50 p-3 text-left transition-colors disabled:cursor-default disabled:opacity-60; }
-  .flow-box-done { @apply border-solid border-slate-300 bg-white hover:border-teal-600; }
+  .flow-box-done { @apply border-solid border-slate-300 bg-surface hover:border-teal-600; }
   .flow-box-active { @apply border-solid border-teal-600 bg-teal-50 ring-1 ring-teal-600; }
   .flow-box-paused { @apply border-solid border-amber-500 bg-amber-50; }
-  .flow-box-open { @apply border-solid border-teal-700 bg-white shadow-sm; }
+  .flow-box-open { @apply border-solid border-teal-700 bg-surface shadow-sm; }
   .flow-arrow { @apply flex items-center px-0.5 text-slate-400; }
   .flow-connector { @apply py-1 text-center text-slate-400; }
   .flow-round { @apply mb-2 text-xs font-semibold uppercase tracking-wider text-slate-500; }
   .flow-panel { @apply mt-2 rounded-xl border border-slate-200 bg-slate-50 p-4; }
-  .flow-item { @apply flex gap-3 rounded-lg border border-slate-200 bg-white p-3; }
+  .flow-item { @apply flex gap-3 rounded-lg border border-slate-200 bg-surface p-3; }
   .flow-decision { @apply mt-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-1.5 text-center text-xs font-medium text-slate-600; }
   .flow-decision-good { @apply border-teal-200 bg-teal-50 text-teal-900; }
 
@@ -110,7 +246,7 @@ textarea { min-height: 6rem; }
 
 /* Stays in view and scrolls on its own beside the wide main column. */
 @media (min-width: 1280px) {
-  .side-panel { position: sticky; top: 1rem; max-height: calc(100vh - 2rem); overflow-y: auto; }
+  .side-panel { position: sticky; top: 4.5rem; max-height: calc(100vh - 5.5rem); overflow-y: auto; }
 }
 
 @media (prefers-reduced-motion: reduce) {
