@@ -109,6 +109,14 @@ class Gateway:
         raise PublicError("LLM-Anfrage fehlgeschlagen.")
 
 
+def truncated(response):
+    """True if the provider stopped at the output limit; reasoning can use it up before any answer."""
+    try:
+        return response["choices"][0].get("finish_reason") == "length"
+    except (KeyError, IndexError, TypeError, AttributeError):
+        return False
+
+
 def parse_response(response, task, blocked_names):
     try:
         content = response["choices"][0]["message"]["content"]

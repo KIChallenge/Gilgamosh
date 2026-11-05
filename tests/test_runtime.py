@@ -261,6 +261,42 @@ def test_invalid_orchestrator_pauses_instead_of_inventing_consensus(simulation, 
         assert not s.scalar(select(Event).where(Event.simulation_id == sid, Event.kind == "ballot"))
 
 
+def test_exhausted_token_limit_names_role_and_limit(simulation, drain, factory, monkeypatch):
+    original = Gateway.complete
+
+    def exhausted(self, config, request, task):
+        response = original(self, config, request, task)
+        if task == "sammelstand_und_vorschlag":
+            response["choices"][0]["finish_reason"] = "length"
+            response["choices"][0]["message"]["content"] = ""
+        return response
+
+    monkeypatch.setattr(Gateway, "complete", exhausted)
+    sid = simulation()
+    drain()
+    with factory() as s:
+        sim = s.get(Simulation, sid)
+        assert sim.status == "paused"
+        assert sim.error.startswith("Token-Limit erreicht: Die Rolle Moderator hat ")
+        assert sim.snapshot["max_tokens"]["moderator"] and str(sim.snapshot["max_tokens"]["moderator"]) in sim.error
+
+
+def test_invalid_output_without_token_limit_keeps_generic_error(simulation, drain, factory, monkeypatch):
+    original = Gateway.complete
+
+    def invalid(self, config, request, task):
+        response = original(self, config, request, task)
+        if task == "sammelstand_und_vorschlag":
+            response["choices"][0]["message"]["content"] = "invalid-json"
+        return response
+
+    monkeypatch.setattr(Gateway, "complete", invalid)
+    sid = simulation()
+    drain()
+    with factory() as s:
+        assert s.get(Simulation, sid).error == "Auch die korrigierte Ausgabe war ungültig."
+
+
 def test_semantic_person_check_blocks_unrecognized_names(simulation, drain, factory, monkeypatch):
     def unsafe(task, ctx, value):
         if task == "einzelphase":

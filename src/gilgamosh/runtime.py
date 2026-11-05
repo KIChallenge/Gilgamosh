@@ -9,7 +9,7 @@ from concurrent.futures import ThreadPoolExecutor
 
 from sqlalchemy import select
 
-from .llm import MAX_OUTPUT_TOKENS, Gateway, parse_response
+from .llm import MAX_OUTPUT_TOKENS, Gateway, parse_response, truncated
 from .models import Call, Endpoint, Event, Job, Simulation, now
 from .schemas import SCHEMAS
 from .security import INSTITUTION_RULE, ContentBlocked, InvalidOutput, PublicError, local_check
@@ -438,6 +438,12 @@ class Runtime:
                     )
             if valid:
                 return result
+        if truncated(response):
+            raise InvalidOutput(
+                f"Token-Limit erreicht: Die Rolle {role.capitalize()} hat {request['max_tokens']} Output-Tokens "
+                "einschließlich Reasoning verbraucht, ohne eine vollständige Antwort zu liefern. Limit unter "
+                "Administration → Default und Rollenzuweisungen erhöhen und eine neue Simulation starten."
+            )
         raise InvalidOutput("Auch die korrigierte Ausgabe war ungültig.")
 
     def safety(self, value, suffix, input_check=False, actor="", scope=None):
