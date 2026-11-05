@@ -37,6 +37,7 @@ gegensätzlich sind, und "Bundesländer" in neun Landes-Agenten. Für die Datenb
 
 1. Kopf und Grundregeln aus `prompt_agent.md` (unverändert).
 2. `## Dein Selbstverständnis` und `## Deine Rechtsgrundlagen` (fest eingetragen).
+   Danach `## Dein Verhandlungsverhalten`: Kernanliegen, zuerst abgebbare Positionen und die Haltung des Agents (abgeleitet aus Statuten und Prioritäten). Diesen Abschnitt liest die Laufzeit mit, die Verhandlungsregeln selbst stehen in `../prompt_agent.md`.
 3. `## Deine Statuten`: `{{ROTE_LINIEN}}` als `R1`, `R2`, ... und `{{VERHANDELBARE_POSITIONEN}}` nach Priorität.
 4. Phasen und JSON-Ausgabeformate aus `prompt_agent.md`.
 
