@@ -1,0 +1,17 @@
+Bewertung:
+ Stufe 1 - Fachjury:
+   Am Freitag ab 10:00 bewertet die Jury die Lösungen und wählt Teams für die Präsi aus
+   Die Jury kommt dazu zu den Teams
+   ca. 15min -> rasch vermitteln welches Problem wir Lösen, wie Lösung funktioniert und worin Mehrwert liegt
+
+ -> Top Teams ausgewählt
+
+  Bewertungskriterien:
+    - Methodik & Daten-, KI-Qualität: Fachlich plausibe? Daten und KI-Methoden sinnvoll eingesetzt?
+    - Nutzen und Wirkung: Welches konkrete Problem wird gelöst? Mehrwert für NutzerInnen oder Institution?
+    - Umsetzbarkeit und Time-to-Impact: Wie realistisch ist eine Weiterentwicklung? Wie rasch praktischer Nutzen?
+    - Transparenz und verantwortungsvoller KI-Einsatz: Sind Quellen, Ergebnisse, Grenzen und wesentliche Entscheidungen nachvollziehbar? Risiken angemessen berücksichtigt?
+    - Nutzbarkeit und Kommunikation: Lösung verständlich? Lässt sich Nutzen überzeugend demonstrieren?
+    - Innovationsgrad: Bietet der Ansatz einen neuen oder besonders innovativen Zugang?
+
+    Entscheidend ist ob die Lösung einen überzeugenden Ansatz zeigt und Potenzial nachvollziehbar demonstriert
