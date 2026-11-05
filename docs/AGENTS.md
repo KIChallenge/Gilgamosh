@@ -106,8 +106,8 @@ ABSCHLUSS
 ### Regeln, die die Runtime prüft (nicht nur das LLM)
 - Ein Agent ist immer in **genau einer** Gruppe. Initial ist jeder Agent seine eigene Einzelgruppe.
 - Gruppen geben **nur Einzelstatements** ab, nie ein gemeinsames Statement.
-- `ablehnen` ist nur gültig, wenn der Orchestrator eine verletzte rote Linie bestätigt. Sonst wird die Stimme zurückgewiesen (zählt als Retry).
-- **Konsens** = keine gültige Stimme `ablehnen` und mindestens die Hälfte der Institutionen stimmt zu oder toleriert. Einzelne Enthaltungen blockieren nicht, eine Mehrheit von Enthaltungen ergibt aber keinen Konsens.
+- `ablehnen` ist nur gültig, wenn der Orchestrator eine verletzte rote Linie (`R…`) oder eine wesentlich beschädigte Priorität 1 oder 2 (`P1`, `P2`) bestätigt. Sonst wird die Stimme zurückgewiesen (zählt als Retry). Eine Zustimmung oder Tolerierung zu einem Vorschlag, der Finanzierung, Entscheidungsbefugnis oder Frist offenlässt, obwohl dies eine rote Linie oder Priorität 1 oder 2 betrifft, wird als Schein-Zustimmung zurückgewiesen.
+- **Konsens** = keine gültige Stimme `ablehnen`, keine Enthaltung und mindestens die Hälfte der Institutionen stimmt mit `zustimmen`. Tolerierungen allein tragen keinen Konsens; eine Institution, deren Stimme wiederholt zurückgewiesen wurde (Enthaltung), hat nicht zugestimmt.
 - In Runde 1 gibt es keinen Sammelstand; `tragbar` ist dann `null`.
 
 ---
@@ -155,7 +155,7 @@ Jede Nachricht und jede Prüfung wird **unveränderlich** gespeichert (append-on
 - **Retry-Limit:** Nach `MAX_RETRY` Rückweisungen → Enthaltung, kein weiterer Aufruf.
 - **Nachrichtenlimit:** Die 4. Verhandlungsnachricht eines Agents wird nicht zugestellt.
 - **Gruppen:** Agent kann nie in zwei Gruppen sein; Austritt → Einzelgruppe.
-- **Konsens:** Eine gültige Ablehnung verhindert Konsens; einzelne Enthaltungen nicht; eine Mehrheit von Enthaltungen schon.
+- **Konsens:** Eine gültige Ablehnung oder eine Enthaltung verhindert Konsens; Tolerierungen zählen nicht als Zustimmung.
 - **Rundenlimit:** Nach Runde `N` ohne Konsens → Teilkompromiss, keine weitere Runde ohne Operator.
 - **Fortsetzen:** Gruppen und Kanäle bleiben, Rundenzähler zurückgesetzt, Watcher-Protokoll läuft weiter.
 - **Reset:** Alter Durchlauf archiviert; aktive Kontexte leer, Einzelgruppen; Frage, DB-Infos und Statuten bleiben.

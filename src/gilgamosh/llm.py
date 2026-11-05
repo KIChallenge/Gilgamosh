@@ -161,8 +161,8 @@ def fake_response(request, task):
         },
         "abstimmung": {
             "agent": a,
-            "stimme": "tolerieren",
-            "begruendung": "Evaluierung und begrenzter Umfang sind tragbar.",
+            "stimme": "zustimmen",
+            "begruendung": "Evaluierung und begrenzter Umfang entsprechen den Interessen der Institution.",
             "verletzte_rote_linie": None,
         },
         "statement_pruefen": {
@@ -214,7 +214,7 @@ def fake_response(request, task):
         },
         "abschlussbericht": {
             "status": ctx.get("ergebnis_status", "konsens"),
-            "ergebnis": "Institutionen tolerieren einen gemeinsamen Pilotansatz.",
+            "ergebnis": "Institutionen stimmen einem gemeinsamen Pilotansatz zu.",
             "verlauf": [],
             "koalitionsbildung": "Eigenständige Institutionsgruppen.",
             "wendepunkte": [],

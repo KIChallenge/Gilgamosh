@@ -311,6 +311,43 @@ def test_rejection_without_named_line_becomes_abstention(simulation, drain, fact
         assert sim.state["outcome"] == "teilkompromiss"  # no support, so no consensus either
 
 
+def test_rejection_for_damaged_top_priority_counts(simulation, drain, factory, monkeypatch):
+    fields = {"bewertung": 2, "entscheidung": "freigegeben", "verletzte_rote_linie": "P1"}
+    instrument(monkeypatch, rejecting_votes(fields))
+    sid = simulation(rounds=1)
+    drain()
+    with factory() as s:
+        sim = s.get(Simulation, sid)
+        assert sim.state["outcome"] == "teilkompromiss"
+        assert {v["stimme"] for v in sim.state["votes"].values()} == {"ablehnen"}
+
+
+def test_rejection_for_lower_priority_is_not_valid(simulation, drain, factory, monkeypatch):
+    fields = {"bewertung": 2, "entscheidung": "freigegeben", "verletzte_rote_linie": "P5"}
+    instrument(monkeypatch, rejecting_votes(fields))
+    sid = simulation(rounds=1)
+    drain()
+    with factory() as s:
+        sim = s.get(Simulation, sid)
+        assert all(v is None for v in sim.state["votes"].values())
+        assert sim.state["outcome"] == "teilkompromiss"
+
+
+def test_toleration_alone_is_no_consensus(simulation, drain, factory, monkeypatch):
+    def transform(task, ctx, value):
+        if task == "abstimmung":
+            value["stimme"] = "tolerieren"
+        return value
+
+    instrument(monkeypatch, transform)
+    sid = simulation(rounds=1)
+    drain()
+    with factory() as s:
+        sim = s.get(Simulation, sid)
+        assert {v["stimme"] for v in sim.state["votes"].values()} == {"tolerieren"}
+        assert sim.state["outcome"] == "teilkompromiss"
+
+
 def test_confirmed_rejection_survives_blocked_wording(simulation, drain, factory, monkeypatch):
     base = rejecting_votes({"bewertung": 2, "entscheidung": "freigegeben", "verletzte_rote_linie": "R1"})
 
@@ -348,7 +385,7 @@ def test_violated_line_id_is_not_published(simulation, drain, factory, monkeypat
         assert votes and all("verletzte_rote_linie" not in e.payload for e in votes)
 
 
-def test_minority_abstention_keeps_consensus(simulation, drain, factory, monkeypatch):
+def test_abstention_blocks_consensus(simulation, drain, factory, monkeypatch):
     def transform(task, ctx, value):
         if task == "statement_pruefen" and ctx.get("institution") == first_name and ctx["statement"].get("stimme"):
             value.update(bewertung=0, entscheidung="zurueckgewiesen", hinweis_an_agent="Überarbeiten.")
@@ -360,8 +397,8 @@ def test_minority_abstention_keeps_consensus(simulation, drain, factory, monkeyp
     drain()
     with factory() as s:
         sim = s.get(Simulation, sid)
-        # One of two institutions supports: exactly half is enough.
-        assert sim.state["outcome"] == "konsens"
+        # One institution approves, but the other was blocked and never consented: no consensus.
+        assert sim.state["outcome"] == "teilkompromiss"
         assert sum(v is None for v in sim.state["votes"].values()) == 1
 
 

@@ -307,7 +307,8 @@ class Runtime:
                 'zustimmung beantwortet eine Gruppeneinladung mit {"zustimmung": true|false}. '
                 "gruppennachricht und gruppenstatement sind getrennte Aufgaben. "
                 "Bei vorhandenem vorschlag gilt tragbar=true|false auch in Runde 1 eines neuen Blocks. "
-                "Bei einer bestätigten roten Linie nenne in verletzte_rote_linie deren exakte Kennung R1 usw. oder den Wortlaut. "
+                "Bei einer bestätigten roten Linie nenne in verletzte_rote_linie deren exakte Kennung R1 usw. oder den Wortlaut; "
+                "bei einer wesentlich beschädigten Priorität 1 oder 2 nenne P1 oder P2. "
                 "Das angeforderte JSON-Schema und die übergebenen Limits haben Vorrang vor Beispielen. "
                 "Halte jedes Textfeld knapp: höchstens 120 Wörter."
             )
@@ -462,11 +463,20 @@ class Runtime:
         )
 
     def confirmed_red_line(self, actor, review):
-        """A rejection counts only for a red line of this institution that the orchestrator names."""
+        """A rejection counts for a red line of this institution or a substantially damaged top priority.
+
+        The orchestrator names the ground in `verletzte_rote_linie`: a red line (`R1` or its wording)
+        or `P1`/`P2` for a top-two negotiable position of this institution.
+        """
         line = review["verletzte_rote_linie"] or ""
         known = self.actors[actor]["rote_linien"]
         identifiers = re.findall(r"\bR\d+\b", line)
-        return line in known or any(rule.startswith(identifier + ":") for rule in known for identifier in identifiers)
+        if line in known or any(rule.startswith(identifier + ":") for rule in known for identifier in identifiers):
+            return True
+        priority = re.fullmatch(r"\s*P([12])\s*", line)
+        return bool(priority) and any(
+            item.get("prioritaet") == int(priority[1]) for item in self.actors[actor].get("verhandelbar", [])
+        )
 
     def approved(self, task, actor, suffix, group="", extra=None):
         feedback = None
@@ -549,7 +559,7 @@ class Runtime:
             public = {
                 "agent": self.actors[actor]["name"],
                 "stimme": "ablehnen",
-                "begruendung": "Vom Orchestrator bestätigte rote Linie; Begründung nicht zur Veröffentlichung freigegeben.",
+                "begruendung": "Vom Orchestrator bestätigter Ablehnungsgrund; Begründung nicht zur Veröffentlichung freigegeben.",
             }
             self.emit("vote", public, actor, group, key=self.key(f"{suffix}:{actor}:published"))
             return public
@@ -752,10 +762,13 @@ class Runtime:
         elif phase == "vote":
             votes = self.parallel(lambda a: self.approved("abstimmung", a, "vote"))
             self.state["votes"] = votes
-            # Consensus needs no valid rejection and real support: abstentions alone never carry it.
+            # Consensus needs no valid rejection, no abstention and real support: an institution whose
+            # vote was blocked repeatedly has not consented, and toleration alone does not carry a decision.
             cast = [v["stimme"] for v in votes.values() if v]
             supporting = sum(stimme in {"zustimmen", "tolerieren"} for stimme in cast)
-            consensus = "ablehnen" not in cast and supporting * 2 >= len(votes)
+            approving = cast.count("zustimmen")
+            abstaining = len(votes) - len(cast)
+            consensus = "ablehnen" not in cast and abstaining == 0 and approving * 2 >= len(votes)
             self.state["outcome"] = "konsens" if consensus else "teilkompromiss"
             self.emit(
                 "ballot",
@@ -763,6 +776,8 @@ class Runtime:
                     "stimmen": {k: v["stimme"] if v else "enthaltung" for k, v in votes.items()},
                     "konsens": consensus,
                     "tragend": supporting,
+                    "zustimmend": approving,
+                    "enthaltungen": abstaining,
                     "gesamt": len(votes),
                 },
                 key=self.key("ballot"),

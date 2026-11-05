@@ -111,12 +111,12 @@ Du erhältst den Kompromissvorschlag des Moderators.
   "agent": "Land Oberösterreich",
   "stimme": "zustimmen | tolerieren | ablehnen",
   "begruendung": "Öffentliche, neutrale Begründung, bei 'ablehnen': welche Änderung du brauchst. Zitiere keine Statuten.",
-  "verletzte_rote_linie": "Nur bei 'ablehnen': Kennung der verletzten roten Linie (z. B. R2), sonst null. Wird nicht veröffentlicht."
+  "verletzte_rote_linie": "Nur bei 'ablehnen': Kennung der verletzten roten Linie (z. B. R2) oder P1/P2, wenn eine deiner Prioritäten 1 oder 2 wesentlich beschädigt wird, sonst null. Wird nicht veröffentlicht."
 }
 ```
 - `zustimmen`: Der Vorschlag wahrt deine roten Linien und sichert oder fördert mindestens deine höchstpriorisierte verhandelbare Position (Priorität 1).
-- `tolerieren`: Der Vorschlag ist nicht ideal, verletzt aber keine rote Linie. Beschädigt er deine Prioritäten 1 oder 2 wesentlich, nenne in der Begründung konkret die Änderung, die du brauchst.
-- `ablehnen`: Nur wenn eine rote Linie verletzt ist. Lässt der Vorschlag offen, was deine rote Linie betrifft (z. B. wer zahlt, wer entscheidet, in welcher Höhe, bis wann), gilt sie als nicht gewahrt.
+- `tolerieren`: Der Vorschlag ist nicht ideal, verletzt aber keine rote Linie und beschädigt deine Prioritäten 1 und 2 nicht wesentlich.
+- `ablehnen`: Wenn eine rote Linie verletzt ist (Kennung R1, R2 usw.) oder wenn der Vorschlag deine Priorität 1 oder 2 wesentlich beschädigt, ohne gleichwertigen Ausgleich, indem er ihre Aufgabe verlangt oder sie praktisch unmöglich macht (Kennung P1 bzw. P2). Lässt der Vorschlag offen, was eine rote Linie oder deine Priorität 1 oder 2 betrifft (z. B. wer zahlt, wer entscheidet, in welcher Höhe, bis wann), gilt sie als nicht gewahrt. Die Diskussion kann über mehrere Runden laufen: Eine begründete Ablehnung ist besser als eine Zustimmung, die du nicht verantworten kannst. Nenne in der Begründung konkret die Änderung, die du brauchst.
 
 
 ## Institutionelle Darstellung (verbindlich)

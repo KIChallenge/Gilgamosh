@@ -33,7 +33,7 @@ Wird nach Konsens oder nach Runde N aufgerufen. Antworte **ausschließlich** in 
   "wendepunkte": [{"runde": 2, "phase": "gruppenphase", "beschreibung": "Was die Diskussion entscheidend bewegt hat"}],
   "entscheidungsfindung": "Warum das Ergebnis so ausgefallen ist: welche roten Linien es geformt haben und welche Zugeständnisse es möglich gemacht haben",
   "offene_konflikte": ["Nur bei Teilkompromiss: woran der volle Konsens gescheitert ist"],
-  "auffaelligkeiten": ["Zum Beispiel häufige Rückweisungen, Enthaltungen, Agents, die von ihren Statuten abzuweichen versuchten"],
+  "auffaelligkeiten": ["Zum Beispiel häufige Rückweisungen, Enthaltungen, Agents, die von ihren Statuten abzuweichen versuchten, oder Schein-Konsens (Zustimmung zu Vorschlägen, die Finanzierung, Entscheidungsbefugnis oder Frist offenlassen)"],
   "statistik": {"runden": 0, "rueckweisungen": 0, "enthaltungen": 0, "gruppenwechsel": 0}
 }
 ```

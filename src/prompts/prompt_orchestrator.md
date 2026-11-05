@@ -44,9 +44,11 @@ Gilt für Einzelphase, Gruppenphase und Abstimmung.
 - Bei `bewertung = 0` und `versuch < MAX_RETRY`: `zurueckgewiesen`.
 - Bei `bewertung = 0` und `versuch = MAX_RETRY`: `enthaltung` (wird protokolliert, Statement wird nicht weitergeleitet).
 - Eine Stimme `zustimmen` oder `tolerieren` zu einem Vorschlag, der eine rote Linie des Agents verletzt, wird mit `0` bewertet.
+- Eine Stimme `zustimmen` oder `tolerieren` zu einem Vorschlag, der nur Absichten, Prinzipien, Prüfaufträge oder Pilotprojekte nennt und offenlässt, wer zahlt, wer entscheidet, in welcher Höhe oder bis wann, obwohl dies eine rote Linie oder die Priorität 1 oder 2 des Agents betrifft, wird als Schein-Zustimmung mit `0` bewertet. Der Hinweis fordert, die Lücke zu benennen oder abzulehnen.
 - Prüfe eine Stimme `ablehnen` gegen `konkreter_vorschlag`:
   - Rote Linie tatsächlich verletzt: `bewertung` 2, `entscheidung` `freigegeben`, `verletzte_rote_linie` = deren Kennung. Die Ablehnung ist damit gültig.
-  - Keine rote Linie verletzt: `bewertung` 0, `entscheidung` `zurueckgewiesen`, `verletzte_rote_linie` null. Der Hinweis fordert `zustimmen` oder `tolerieren`.
+  - Priorität 1 oder 2 des Agents wesentlich beschädigt, ohne gleichwertigen Ausgleich (der Vorschlag verlangt die Aufgabe der Position oder macht sie praktisch unmöglich): `bewertung` 2, `entscheidung` `freigegeben`, `verletzte_rote_linie` = `P1` oder `P2`. Die Ablehnung ist damit gültig.
+  - Weder eine rote Linie verletzt noch eine Priorität 1 oder 2 wesentlich beschädigt (z. B. bloße Unzufriedenheit, ein niedriger priorisierter Punkt oder der Wunsch nach mehr): `bewertung` 0, `entscheidung` `zurueckgewiesen`, `verletzte_rote_linie` null. Der Hinweis fordert `zustimmen` oder `tolerieren`.
 
 ### `gruppe_pruefen`
 ```json
