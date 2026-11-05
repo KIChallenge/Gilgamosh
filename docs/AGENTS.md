@@ -3,7 +3,7 @@
 Dieses Dokument beschreibt für den Coding Agent, **was** gebaut werden soll. Es gibt keinen Tech-Stack vor. Sprache, Framework und LLM-Anbieter legt das Team fest.
 
 Fachliche Grundlage:
-- `prozess_spezifikation.md` – vollständige Prozessregeln
+- `../src/prompts/prozess_spezifikation.md` – vollständige Prozessregeln
 - `prompt_agent.md`, `prompt_orchestrator.md`, `prompt_moderator.md`, `prompt_watcher.md` – Systemprompts mit JSON-Ausgabeformaten
 
 Bei Widersprüchen gilt: Prozessspezifikation vor diesem Dokument vor eigenen Annahmen. Unklares nicht raten, sondern als offene Frage markieren.
@@ -12,7 +12,7 @@ Bei Widersprüchen gilt: Prozessspezifikation vor diesem Dokument vor eigenen An
 
 ## 1. Ziel
 
-Mehrere LLM-Agents mit unterschiedlichen Interessen (Statuten) diskutieren eine Frage und sollen in höchstens `N` Runden einen Kompromiss finden. Ein Orchestrator prüft jede Agent-Aussage gegen die Statuten, ein Moderator fasst zusammen und schlägt Kompromisse vor, ein Watcher protokolliert alles und schreibt am Ende einen Bericht.
+Mehrere LLM-Agents mit unterschiedlichen Interessen (Statuten) diskutieren eine Frage und sollen in höchstens `N` Runden einen Kompromiss finden. Ein Orchestrator prüft jede Agent-Aussage gegen die Statuten, ein Moderator fasst zusammen und schlägt Kompromisse vor, ein Watcher erstellt laufende Zwischenstände für die Oberfläche und am Ende einen Bericht.
 
 Der Code ist die **Ablaufsteuerung (Runtime)**: Er ruft die LLM-Rollen auf, leitet Nachrichten nach festen Regeln weiter, hält den Zustand und erzwingt alle Limits. Die LLMs treffen nur inhaltliche Entscheidungen.
 
@@ -63,7 +63,7 @@ Beim Bau des LLM-Kontexts nur das einfügen, was die Rolle sehen darf:
 
 | Name | Wert | Bedeutung |
 |---|---|---|
-| `N` | Anzahl der initial festgelegten Agents | Höchstzahl der Runden ab Runde 2 |
+| `N` | 6 | Höchstzahl aller Runden pro Rundenblock |
 | `MAX_RETRY` | 3 | Versuche pro Statement; danach Enthaltung (wird protokolliert, nicht weitergeleitet) |
 | `MAX_NACHRICHTEN` | 3 | Verhandlungsnachrichten pro Agent und Gruppenphase; weitere werden nicht zugestellt |
 
@@ -96,8 +96,8 @@ ABSCHLUSS
  ├─ Watcher.abschlussbericht → Operator
  └─ nur bei Teilkompromiss: Operator wählt
       FORTSETZEN   Teilkompromiss = neuer Sammelstand, Gruppen + Kanäle bleiben,
-                   r zurückgesetzt, weiter bei Runde 2, Watcher-Protokoll läuft weiter
-      RESET        Verläufe, Gruppen, Kanäle löschen, Start bei FRAGE,
+                   neuer Rundenblock bei r = 1 mit vorhandenem Sammelstand, Watcher-Protokoll läuft weiter
+      RESET        alten Durchlauf archivieren, aktive Kontexte und Gruppen zurücksetzen, Start bei FRAGE,
                    neues Watcher-Protokoll (altes archivieren),
                    Agent-Reihenfolge oder Temperature variieren
       ENDE         Prozess beenden
@@ -158,11 +158,18 @@ Jede Nachricht und jede Prüfung wird **unveränderlich** gespeichert (append-on
 - **Konsens:** Eine gültige Ablehnung verhindert Konsens; Enthaltungen nicht.
 - **Rundenlimit:** Nach Runde `N` ohne Konsens → Teilkompromiss, keine weitere Runde ohne Operator.
 - **Fortsetzen:** Gruppen und Kanäle bleiben, Rundenzähler zurückgesetzt, Watcher-Protokoll läuft weiter.
-- **Reset:** Alles gelöscht außer Frage, DB-Infos, Statuten; neues Watcher-Protokoll.
+- **Reset:** Alter Durchlauf archiviert; aktive Kontexte leer, Einzelgruppen; Frage, DB-Infos und Statuten bleiben.
 - LLM-Aufrufe für Tests mocken (feste JSON-Antworten), damit der Ablauf deterministisch testbar ist.
 
 ---
 
-## 10. Offener Punkt
+## 10. Verbindliche Prototyp-Entscheidungen
 
-- `MAX_NACHRICHTEN` = 3 ist aktuell als **pro Agent** und Gruppenphase umgesetzt. Bestätigung durch das Team ausstehend; die Zählung sollte leicht auf „pro Gruppe“ umstellbar sein.
+- `N` hat Default 6 und zählt sämtliche Runden eines Blocks; alle Limits sind konfigurierbar.
+- `MAX_RETRY` zählt insgesamt höchstens 3 fachliche Versuche, nicht 3 zusätzliche Wiederholungen.
+- `MAX_NACHRICHTEN` gilt pro Institution und Gruppenphase.
+- Gruppen benötigen Zustimmung sämtlicher vorgesehenen Mitglieder und Orchestrator-Freigabe.
+- Reset archiviert unveränderliche Nachrichten; nur aktive Kontexte werden geleert.
+- Der Watcher erstellt nach jeder Phase einen Zwischenstand ausschließlich für die Bedienoberfläche; niemals Rückkopplung an die verhandelnden Rollen.
+- Alle Akteure sind Institutionen oder institutionelle Interessenvertretungen. Keine Einzelpersonen, Personennamen, persönlichen Zuschreibungen oder Personenzitate in veröffentlichten Inhalten.
+- Der erste Prototyp nutzt vorbereitete Daten und Systemprompts; Presse-Ingest und Recherchetools sind spätere Ausbaustufen.

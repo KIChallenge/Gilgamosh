@@ -1,0 +1,46 @@
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: gilgamosh
+      POSTGRES_USER: gilgamosh
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+    volumes:
+      - postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: [CMD-SHELL, 'pg_isready -U gilgamosh -d gilgamosh']
+      interval: 3s
+      timeout: 3s
+      retries: 20
+  init:
+    build: .
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql+psycopg://gilgamosh:${POSTGRES_PASSWORD}@db:5432/gilgamosh
+    command: [sh, -c, 'alembic upgrade head && gilgamosh init']
+    depends_on:
+      db:
+        condition: service_healthy
+  web:
+    build: .
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql+psycopg://gilgamosh:${POSTGRES_PASSWORD}@db:5432/gilgamosh
+    ports:
+      - '127.0.0.1:5000:5000'
+    depends_on:
+      init:
+        condition: service_completed_successfully
+    restart: unless-stopped
+  worker:
+    build: .
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql+psycopg://gilgamosh:${POSTGRES_PASSWORD}@db:5432/gilgamosh
+    command: [gilgamosh, worker]
+    depends_on:
+      init:
+        condition: service_completed_successfully
+    restart: unless-stopped
+volumes:
+  postgres:

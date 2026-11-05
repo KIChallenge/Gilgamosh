@@ -60,3 +60,9 @@ Vertragstext.
 - Fachliche Prüfung der roten Linien durch Expert:innen der jeweiligen Säule.
 - Ob die Landes-Agenten wirklich neun getrennte Agenten sein sollen oder eine Auswahl pro Simulation.
 - Einzelne Länder-Positionen stützen sich nur auf wenige Pressemeldungen (siehe `HINTERGRUND.md`).
+
+## Integration im Prototyp
+
+Die Anwendung importiert die 24 Institutionsprofile plus den organisatorischen Elternknoten `bundeslaender` bei der Initialisierung. Quellpfad und SHA-256-Hash bleiben am Profil gespeichert. Gemeinsame Phasenregeln stammen aus dem versionierten Rollenprompt; die individuellen Beschreibungen und Rechtsgrundlagen sowie die strukturierten Statuten werden aus diesen Dateien übernommen. Persönliche Amtsrollen werden institutionell formuliert; die Profile vertreten niemals Einzelpersonen.
+
+`HINTERGRUND.md` wird nicht in Modellkontexte aufgenommen. Die Sammeldatei `_statuten_aller_agents.md` wird nicht an einzelne Agenten oder Moderator weitergegeben. Der Prüfkontext wird aus den tatsächlich ausgewählten Institutionsprofilen aufgebaut. Details zum sicheren Aktualisieren bestehender Profile: `docs/development.md`.

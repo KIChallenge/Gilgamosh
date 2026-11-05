@@ -1,0 +1,13 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+:root { color-scheme: light; }
+body { background: #f4f6f8; color: #243247; }
+.shell { max-width: 1600px; margin: auto; }
+.card { border: 1px solid #e0e5eb; box-shadow: 0 2px 8px #20304005; }
+.chat-bubble { max-width: 100%; background: #edf3f7; color: #243247; white-space: pre-wrap; }
+pre { white-space: pre-wrap; overflow-wrap: anywhere; }
+textarea { min-height: 7rem; }
+.phase { border-left: 3px solid #158c82; padding-left: .8rem; }
+.stale { border-left: 3px solid #d29436; }
+@media (prefers-reduced-motion: reduce) { .loading { animation: none; } }

@@ -54,4 +54,8 @@ Wird nach Konsens oder nach Runde N aufgerufen.
 ```
 Die Entscheidung über einen Neustart trifft der Operator. Deine Empfehlung ist nur eine Orientierung.
 - `fortsetzen_mit_stand`: Der Teilkompromiss wird neuer Sammelstand, die bestehenden Gruppen bleiben erhalten. Sinnvoll, wenn nur wenige Punkte offen sind.
-- `kompletter_reset`: Alles wird gelöscht und die Diskussion beginnt neu. Sinnvoll, wenn sich die Gruppen festgefahren haben.
+- `kompletter_reset`: Der alte Durchlauf wird archiviert, die aktiven Kontexte werden geleert und die Diskussion beginnt neu. Sinnvoll, wenn sich die Gruppen festgefahren haben.
+
+
+## Institutionelle Darstellung (verbindlich)
+Alle Akteure handeln ausschließlich als Institutionen. Niemals Personennamen nennen, Personen verkörpern oder zitieren. Keine persönlichen Zuschreibungen. Institutionsbezeichnungen sind erlaubt. Die vom Aufrufer gelieferte JSON-Schema-Definition ist verbindlich.

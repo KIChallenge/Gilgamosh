@@ -28,8 +28,8 @@ Bewertungsskala des Orchestrators pro Statement:
 
 | Parameter | Wert |
 |---|---|
-| `N` (max. Runden ab Runde 2) | Anzahl der initial festgelegten Agents |
-| `MAX_RETRY` (Neuversuche pro Statement) | 3 – danach Enthaltung, wird protokolliert |
+| `N` (max. Runden insgesamt pro Block) | 6 (konfigurierbar) |
+| `MAX_RETRY` (Versuche insgesamt pro Statement) | 3 – danach Enthaltung, wird protokolliert |
 | `MAX_NACHRICHTEN` (Verhandlungsnachrichten pro Agent und Gruppenphase) | 3 |
 
 ## Ablauf
@@ -60,8 +60,15 @@ Bewertungsskala des Orchestrators pro Statement:
 - Ausgabe des **Teilkompromisses** inkl. Zustimmungen, Tolerierungen und dokumentierter Ablehnungen.
 - Der **Watcher** legt seinen Abschlussbericht an den Operator vor.
 - Ein **Mensch/Operator** wählt:
-  - **Fortsetzen mit Stand:** Teilkompromiss wird neuer Sammelstand, **Gruppen und Kanäle bleiben bestehen**, Start bei Runde 2, Rundenzähler zurückgesetzt. Der Watcher führt sein Protokoll weiter.
-  - **Kompletter Reset:** Alle Verläufe, Gruppen und Kanäle werden gelöscht; Start bei Runde 1 nur mit Frage und DB-Infos. Der Watcher beginnt ein neues Protokoll, das alte bleibt erhalten. Empfehlung: Agent-Reihenfolge oder Temperature variieren.
+  - **Fortsetzen mit Stand:** Teilkompromiss wird neuer Sammelstand, **Gruppen und Kanäle bleiben bestehen**, neuer Rundenblock bei Runde 1 mit vorhandenem Sammelstand. Der Watcher führt sein Protokoll weiter.
+  - **Kompletter Reset:** Alle Verläufe, Gruppen und Kanäle des alten Durchlaufs werden archiviert und aus dem aktiven Kontext entfernt; Start bei Runde 1 nur mit Frage und DB-Infos. Der Watcher beginnt ein neues Protokoll, das alte bleibt erhalten. Empfehlung: Agent-Reihenfolge oder Temperature variieren.
 
-## Offener Punkt
-- Bestätigen: `MAX_NACHRICHTEN` gilt pro Agent, nicht für die ganze Gruppe.
+## Verbindliche Ergänzungen für V1
+
+- Alle Akteure sind ausschließlich Institutionen oder institutionelle Interessenvertretungen. Keine Einzelpersonen als Akteure, keine Personennamen, Personenzitate oder persönlichen Zuschreibungen in Beiträgen und Berichten.
+- Gruppen benötigen explizite Zustimmung aller vorgesehenen Mitglieder vor der Orchestrator-Prüfung. Austritt ist jederzeit in der Koalitionsphase möglich; danach Einzelgruppe. Konkurrierende Anträge werden in gespeicherter Institutionsreihenfolge bearbeitet und nach relevanten Mitgliedschaftsänderungen verworfen.
+- Gruppen verhandeln reihum mit höchstens MAX_NACHRICHTEN zugestellten Nachrichten pro Institution. Einzelgruppen erstellen ohne internen Dialog ein eigenes Statement.
+- Der Watcher erstellt zusätzlich nach jeder abgeschlossenen Phase eine belegte Zusammenfassung für das Seitenpanel „Aktueller Stand“. Er greift nie in die Verhandlung ein. Die Zusammenfassungen werden nie als Agentenkontext verwendet.
+- Reset bewahrt sämtliche alten Nachrichten, Prüfungen, Trajectories und Berichte im Archiv; neue Kontexte enthalten keine alten Nachrichten.
+- Fachliche Limits erzwingt die Runtime. Über ungültige Steuerrollen-Ausgaben oder Providerfehler darf sie keinen Konsens erfinden.
+- Technische Aufrufprotokolle sind ein geschützter interner Bereich für ungeprüfte Rohdaten; reguläre Ansichten und Exporte enthalten ausschließlich geprüfte Beiträge.

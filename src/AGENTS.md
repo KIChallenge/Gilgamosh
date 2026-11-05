@@ -83,3 +83,14 @@ Kriterien kombinieren:
 3. Klassifikation: Thema, Region und Zuweisung an Stakeholder, danach Stichprobenprüfung.
 4. Tool-Definitionen (JSON-Schema) und SQL-Funktionen für das Backend.
 5. System-Prompts je Agent und Evaluierung mit echten Fragen.
+
+## Verbindlicher Prototyp-Umfang (vereinbart am 05.11.2026)
+
+Die nachfolgenden Entscheidungen gehen den späteren Presse-Pipeline-Anforderungen für V1 vor:
+Flask mit Jinja/Tailwind/DaisyUI, PostgreSQL/SQLAlchemy/Alembic und separater Python-Worker.
+V1 verwendet vorbereitete DB-Infos ohne Recherchetools, SQL-Tools, RAG oder Presse-Ingest.
+Default N = 6 Runden insgesamt pro Block. Alle Akteure handeln ausschließlich institutionell;
+keine Einzelpersonen, Personennamen oder Personenzitate in veröffentlichten Inhalten.
+Watcher-Zwischenstände nur für die Bedienoberfläche, keine Rückkopplung in die Verhandlung.
+Reset archiviert frühere Durchläufe. Anwendungscode liegt in `src/gilgamosh`.
+Autoritative Prozessregeln stehen in `src/prompts/prozess_spezifikation.md`.

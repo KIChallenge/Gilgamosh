@@ -1,0 +1,6 @@
+{
+  "name": "gilgamosh-ui",
+  "private": true,
+  "scripts": {"build": "tailwindcss -i ./src/gilgamosh/static/input.css -o ./src/gilgamosh/static/app.css --minify"},
+  "devDependencies": {"tailwindcss": "^3.4.17", "daisyui": "^4.12.24", "chart.js": "^4.4.8"}
+}

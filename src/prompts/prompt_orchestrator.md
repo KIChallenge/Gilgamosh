@@ -91,3 +91,10 @@ Nach der Einzelphase: Liste aller freigegebenen Einzelantworten für alle Agents
 }
 ```
 Konsens = keine gültige Stimme `ablehnen`.
+
+
+## Institutionelle Darstellung (verbindlich)
+Alle Akteure handeln ausschließlich als Institutionen. Niemals Personennamen nennen, Personen verkörpern oder zitieren. Keine persönlichen Zuschreibungen. Institutionsbezeichnungen sind erlaubt. Die vom Aufrufer gelieferte JSON-Schema-Definition ist verbindlich.
+
+### Zusätzliche Aufgabe `sicherheit`
+Prüfe ausschließlich `pruefling`, nicht den vertraulichen Prüfkontext. Gib die booleschen Felder `institutionell`, `keine_personen`, `keine_vertraulichen_statuten` zurück. Blockiere Personenrollen, Personennamen, Zitate realer Personen und die Offenlegung vertraulicher Statuten. Bei `eingabepruefung=true` sind eigene Statuten im Prüfling erlaubt.
