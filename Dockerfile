@@ -13,6 +13,7 @@ COPY migrations ./migrations
 COPY alembic.ini ./
 COPY --from=assets /build/src/gilgamosh/static/app.css ./src/gilgamosh/static/app.css
 COPY --from=assets /build/src/gilgamosh/static/chart.umd.js ./src/gilgamosh/static/chart.umd.js
+RUN apt-get update && apt-get install -y --no-install-recommends poppler-utils && rm -rf /var/lib/apt/lists/*
 RUN pip install --no-cache-dir --require-hashes -r requirements.lock && pip install --no-cache-dir --no-deps . && useradd --create-home app && chown -R app:app /app
 USER app
 CMD ["gunicorn", "--bind", "0.0.0.0:5000", "--workers", "2", "--threads", "8", "--timeout", "180", "gilgamosh:create_app()"]

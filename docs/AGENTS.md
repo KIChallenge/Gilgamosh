@@ -75,7 +75,8 @@ Alle Parameter konfigurierbar machen, nicht hart codieren.
 
 ```
 START
- └─ FRAGE            Moderator.frage_stellen → Frage + DB-Infos an jeden Agent
+ ├─ FRAGE            Moderator.frage_stellen
+ └─ RECHERCHE        je Agent: Suche in den Quellen → Briefing als DB-Infos (entfällt ohne Quellen)
 RUNDE (r = 1 … N)
  ├─ EINZELPHASE      je Agent: Agent.einzelphase → Orchestrator.statement_pruefen
  │                   Bewertung 0 → Hinweis an Agent, neuer Versuch (≤ MAX_RETRY), sonst Enthaltung
@@ -107,7 +108,8 @@ ABSCHLUSS
 - Ein Agent ist immer in **genau einer** Gruppe. Initial ist jeder Agent seine eigene Einzelgruppe.
 - Gruppen geben **nur Einzelstatements** ab, nie ein gemeinsames Statement.
 - `ablehnen` ist nur gültig, wenn der Orchestrator eine verletzte rote Linie (`R…`) oder eine wesentlich beschädigte Priorität 1 oder 2 (`P1`, `P2`) bestätigt. Sonst wird die Stimme zurückgewiesen (zählt als Retry). Eine Zustimmung oder Tolerierung zu einem Vorschlag, der Finanzierung, Entscheidungsbefugnis oder Frist offenlässt, obwohl dies eine rote Linie oder Priorität 1 oder 2 betrifft, wird als Schein-Zustimmung zurückgewiesen.
-- **Konsens** = keine gültige Stimme `ablehnen`, keine Enthaltung und mindestens die Hälfte der Institutionen stimmt mit `zustimmen`. Tolerierungen allein tragen keinen Konsens; eine Institution, deren Stimme wiederholt zurückgewiesen wurde (Enthaltung), hat nicht zugestimmt.
+- `nachbessern` verlangt eine konkrete Änderung, setzt keine rote Linie voraus und führt zu einer weiteren Runde. Ohne konkrete Änderung wird die Stimme zurückgewiesen.
+- **Konsens** = keine gültige Stimme `ablehnen`, keine Stimme `nachbessern`, keine Enthaltung und mindestens die Hälfte der Institutionen stimmt mit `zustimmen`. Tolerierungen allein tragen keinen Konsens; eine Institution, deren Stimme wiederholt zurückgewiesen wurde (Enthaltung), hat nicht zugestimmt.
 - In Runde 1 gibt es keinen Sammelstand; `tragbar` ist dann `null`.
 
 ---
@@ -155,7 +157,7 @@ Jede Nachricht und jede Prüfung wird **unveränderlich** gespeichert (append-on
 - **Retry-Limit:** Nach `MAX_RETRY` Rückweisungen → Enthaltung, kein weiterer Aufruf.
 - **Nachrichtenlimit:** Die 4. Verhandlungsnachricht eines Agents wird nicht zugestellt.
 - **Gruppen:** Agent kann nie in zwei Gruppen sein; Austritt → Einzelgruppe.
-- **Konsens:** Eine gültige Ablehnung oder eine Enthaltung verhindert Konsens; Tolerierungen zählen nicht als Zustimmung.
+- **Konsens:** Eine gültige Ablehnung, eine Nachbesserung oder eine Enthaltung verhindert Konsens; Tolerierungen zählen nicht als Zustimmung.
 - **Rundenlimit:** Nach Runde `N` ohne Konsens → Teilkompromiss, keine weitere Runde ohne Operator.
 - **Fortsetzen:** Gruppen und Kanäle bleiben, Rundenzähler zurückgesetzt, Watcher-Protokoll läuft weiter.
 - **Reset:** Alter Durchlauf archiviert; aktive Kontexte leer, Einzelgruppen; Frage, DB-Infos und Statuten bleiben.
@@ -173,4 +175,4 @@ Jede Nachricht und jede Prüfung wird **unveränderlich** gespeichert (append-on
 - Der Watcher erstellt nach jeder Phase einen Zwischenstand ausschließlich für die Bedienoberfläche; niemals Rückkopplung an die verhandelnden Rollen.
 - Alle Akteure sind Institutionen oder institutionelle Interessenvertretungen. Keine Einzelpersonen, Personennamen, persönlichen Zuschreibungen oder Personenzitate in veröffentlichten Inhalten.
 - Jeder Stakeholder hat einen eigenen begrenzten Kontext; Prüfrollen sehen je Aufgabe nur die betroffenen Statuten. Details: `docs/development.md`.
-- Der erste Prototyp nutzt vorbereitete Daten und Systemprompts; Presse-Ingest und Recherchetools sind spätere Ausbaustufen.
+- Pressespiegel und Rechtstexte werden per `gilgamosh ingest` in PostgreSQL geladen und über die Volltextsuche beim Start als Briefing je Institution bereitgestellt. Recherchetools für Agenten während der Verhandlung sind eine spätere Ausbaustufe.

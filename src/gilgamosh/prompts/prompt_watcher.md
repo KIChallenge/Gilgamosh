@@ -26,7 +26,7 @@ Wird nach Konsens oder nach Runde N aufgerufen. Antworte **ausschließlich** in 
       "gruppen": [{"gruppen_id": "G1", "mitglieder": ["..."]}],
       "kernpunkte": ["Was in dieser Runde passiert ist"],
       "zugestaendnisse": [{"agent": "Name", "position": "...", "gegenleistung": "..."}],
-      "abstimmung": {"zustimmen": ["..."], "tolerieren": ["..."], "ablehnen": ["..."]}
+      "abstimmung": {"zustimmen": ["..."], "tolerieren": ["..."], "nachbessern": ["..."], "ablehnen": ["..."]}
     }
   ],
   "koalitionsbildung": "Wie und warum sich Gruppen gebildet, verändert oder aufgelöst haben",

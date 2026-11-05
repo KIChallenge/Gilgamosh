@@ -18,7 +18,9 @@ services:
     env_file: .env
     environment:
       DATABASE_URL: postgresql+psycopg://gilgamosh:${POSTGRES_PASSWORD}@db:5432/gilgamosh
-    command: [sh, -c, 'alembic upgrade head && gilgamosh init']
+    command: [sh, -c, 'alembic upgrade head && gilgamosh init && gilgamosh ingest /data --optional']
+    volumes:
+      - ${DATA_DIR:-../data}:/data:ro
     depends_on:
       db:
         condition: service_healthy

@@ -3,8 +3,9 @@
 Webbasierter Prototyp für institutionelle Verhandlungen im österreichischen Gesundheitswesen. Flask, Tailwind/DaisyUI, PostgreSQL/SQLAlchemy, separater Worker und OpenRouter.
 
 - 24 modellierte Stakeholder-Profile inklusive neun Landesinstitutionen
+- Recherche in Pressespiegel und Rechtstexten als Briefing je Institution mit Quellenangabe
 - Einzelpositionen, Koalitionen, Gruppenverhandlungen, Prüfung und Abstimmung
-- Live-Diskussion mit Ladeanzeigen und laufendem Watcher-Seitenpanel
+- Live-Verlauf als aufklappbares Flussdiagramm, Zeitstrahl und laufendes Watcher-Seitenpanel
 - Persistente Trajectories, Pause/Fortsetzen, archivierende Resets und Ergebnisexporte
 - Default: sechs Runden; ausschließlich institutionelle Akteure, keine Einzelpersonen
 

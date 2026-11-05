@@ -1,0 +1,8 @@
+{% if sources %}
+<p class="muted">
+  Recherche in
+  {% if sources.press %}{{ '{:,}'.format(sources.press.count).replace(',', '.') }} Presseartikeln ({{ sources.press.first.strftime('%d.%m.%Y') }} bis {{ sources.press.last.strftime('%d.%m.%Y') }}){% endif %}{% if sources.press and sources.law %} und {% endif %}{% if sources.law %}{{ '{:,}'.format(sources.law.count).replace(',', '.') }} Rechtstexten{% endif %}.
+</p>
+{% else %}
+<p class="muted">Keine Quellen geladen: Institutionen verhandeln ohne Recherche. Quellen werden beim Start aus dem Datenordner geladen, siehe <code>docs/development.md</code>.</p>
+{% endif %}

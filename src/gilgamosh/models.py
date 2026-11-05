@@ -1,10 +1,10 @@
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 from uuid import uuid4
 
 from flask_login import UserMixin
 from flask_sqlalchemy import SQLAlchemy
-from sqlalchemy import JSON, DateTime, UniqueConstraint
-from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy import JSON, Computed, Date, DateTime, Index, UniqueConstraint
+from sqlalchemy.dialects.postgresql import JSONB, TSVECTOR
 from sqlalchemy.orm import Mapped, mapped_column
 
 
@@ -121,6 +121,26 @@ class Job(db.Model):
     lease_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     available_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now)
+
+
+class Source(db.Model):
+    """A press article or legal provision. The full text never leaves through the regular views."""
+
+    __table_args__ = (
+        Index("ix_source_search", "search", postgresql_using="gin"),
+        Index("ix_source_kind", "kind"),
+    )
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    key: Mapped[str] = mapped_column(unique=True)
+    kind: Mapped[str]  # press, law
+    title: Mapped[str]
+    publisher: Mapped[str]
+    citation: Mapped[str]
+    published: Mapped[date | None] = mapped_column(Date)
+    body: Mapped[str]
+    search: Mapped[str | None] = mapped_column(
+        TSVECTOR, Computed("to_tsvector('german', title || ' ' || body)", persisted=True)
+    )
 
 
 class Command(db.Model):

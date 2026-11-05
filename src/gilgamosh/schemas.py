@@ -19,6 +19,7 @@ class Position(Output):
     begruendung: str
     tragbar: bool | None
     zugestaendnisse: list[str]
+    quellen: list[int]
 
 
 class Coalition(Output):
@@ -46,11 +47,12 @@ class Statement(Output):
     statement: str
     einigungen_in_gruppe: list[str]
     zugestaendnisse: list[str]
+    quellen: list[int]
 
 
 class Vote(Output):
     agent: str
-    stimme: Literal["zustimmen", "tolerieren", "ablehnen"]
+    stimme: Literal["zustimmen", "tolerieren", "nachbessern", "ablehnen"]
     begruendung: str
     verletzte_rote_linie: str | None
 
@@ -95,6 +97,8 @@ class Proposal(Output):
     sammelstand: Summary
     kompromissvorschlag: str
     begruendung: str
+    offene_konflikte: list[str]
+    zielbeitrag: str
 
 
 class Rejection(Output):
@@ -107,6 +111,7 @@ class Closing(Output):
     ergebnis: str
     zustimmung: list[str]
     tolerierung: list[str]
+    nachbesserung: list[Rejection]
     ablehnung: list[Rejection]
     offene_punkte: list[str]
     empfehlung_neustart: Literal["fortsetzen_mit_stand", "kompletter_reset", "keiner"]
@@ -138,6 +143,7 @@ class Concession(Output):
 class VoteSummary(Output):
     zustimmen: list[str]
     tolerieren: list[str]
+    nachbessern: list[str]
     ablehnen: list[str]
 
 
@@ -180,7 +186,22 @@ class Safety(Output):
     keine_vertraulichen_statuten: bool
 
 
+class SearchTerms(Output):
+    begriffe: list[str]
+
+
+class Fact(Output):
+    quelle: int
+    aussage: str
+
+
+class Briefing(Output):
+    fakten: list[Fact]
+
+
 SCHEMAS = {
+    "suchbegriffe": SearchTerms,
+    "briefing": Briefing,
     "frage_stellen": Question,
     "einzelphase": Position,
     "koalitionsphase": Coalition,

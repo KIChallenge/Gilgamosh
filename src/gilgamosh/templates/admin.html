@@ -57,6 +57,11 @@
   </div>
 
   <div class="panel panel-body">
+    <h2 class="panel-title mb-1">Datenbasis</h2>
+    {% include '_sources.html' %}
+  </div>
+
+  <div class="panel panel-body">
     <h2 class="panel-title mb-1">Institutionen importieren oder anlegen</h2>
     <p class="muted mb-3">JSON-Liste mit stabiler id, name, system_prompt, rote_linien, verhandelbar und db_infos. Bestehende Kennungen werden aktualisiert.</p>
     <form data-api="/api/admin/actors" data-success="reload">
@@ -70,7 +75,7 @@
     <h2 class="panel-title mb-3">Rollenprompts</h2>
     {% for role, prompt in prompts.items() %}
     <details class="border-b border-slate-100 py-3 last:border-0">
-      <summary class="cursor-pointer text-sm font-medium text-slate-800">{{ {'agent':'Institution','orchestrator':'Orchestrator','moderator':'Moderator','watcher':'Watcher'}[role] }} <span class="pill pill-neutral ml-1">Version {{ prompt.version }}</span></summary>
+      <summary class="cursor-pointer text-sm font-medium text-slate-800">{{ {'agent':'Institution','orchestrator':'Orchestrator','moderator':'Moderator','watcher':'Watcher','recherche':'Recherche'}[role] }} <span class="pill pill-neutral ml-1">Version {{ prompt.version }}</span></summary>
       <form data-api="/api/admin/prompts" data-success="reload" class="mt-3">
         <input name="role" value="{{ role }}" type="hidden">
         <label class="field"><span class="sr-only">Prompt für {{ role }}</span><textarea name="text" class="textarea textarea-bordered h-80 w-full font-mono text-xs" required>{{ prompt.text }}</textarea></label>
@@ -141,7 +146,7 @@
           <h3 class="text-sm font-semibold text-slate-900">Rollen</h3>
           <p class="muted">Maximale Output-Tokens begrenzen die Ausgabe pro Aufruf einschließlich Reasoning. Ist der Wert zu klein, bricht das Modell vor der Antwort ab. Gilt für neue Simulationen.</p>
         </div>
-        {% for role in ['moderator','orchestrator','watcher'] %}{% set assignment = system.roles.get(role,{}) %}
+        {% for role in ['recherche','moderator','orchestrator','watcher'] %}{% set assignment = system.roles.get(role,{}) %}
         <div class="grid items-end gap-3 sm:grid-cols-4">
           <span class="text-sm font-medium text-slate-800 sm:pb-1.5">{{ role | capitalize }}</span>
           <label class="field"><span class="field-label">Verbindung</span><select class="select select-bordered select-sm" name="roles.{{ role }}.endpoint_id"><option value="">Globaler Default</option>{% for e in endpoints %}<option value="{{ e.id }}" {% if assignment.get('endpoint_id') == e.id %}selected{% endif %}>{{ e.name }}</option>{% endfor %}</select></label>

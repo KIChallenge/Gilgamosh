@@ -107,11 +107,13 @@ function selectAdminTab(name) {
   for (const panel of document.querySelectorAll('[data-admin-panel]')) panel.classList.toggle('hidden', panel.dataset.adminPanel !== name);
   for (const other of document.querySelectorAll('[data-admin-tab]')) other.classList.toggle('view-tab-active', other === tab);
 }
+// Every tab change is a history entry, so the back button returns to the previous tab.
 for (const tab of document.querySelectorAll('[data-admin-tab]')) tab.addEventListener('click', () => {
   selectAdminTab(tab.dataset.adminTab);
-  history.replaceState(null, '', `#${tab.dataset.adminTab}`);
+  history.pushState(null, '', `#${tab.dataset.adminTab}`);
 });
 if (location.hash) selectAdminTab(location.hash.slice(1));
+window.addEventListener('popstate', () => selectAdminTab(location.hash.slice(1) || 'actors'));
 
 for (const button of document.querySelectorAll('[data-probe]')) button.addEventListener('click', async () => {
   const result = button.parentElement.querySelector('[data-probe-result]');

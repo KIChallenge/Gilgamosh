@@ -466,3 +466,90 @@ def test_every_stakeholder_gets_a_bounded_context_of_its_own(simulation, drain, 
         )
         assert "verlauf" not in safety and "bisherige_positionen" not in safety
         assert long_text not in json.dumps(safety["institutionen_profile"])
+
+
+def test_requested_change_prevents_consensus_and_opens_next_round(simulation, drain, factory, monkeypatch):
+    seen = []
+
+    def transform(task, ctx, value):
+        # The first ballot asks for a change, the second one is fine.
+        if task == "abstimmung" and ctx["runde"] == 1:
+            value.update(stimme="nachbessern", begruendung="Die Finanzierung muss konkret benannt werden.")
+        if task == "sammelstand_und_vorschlag":
+            seen.append(ctx.get("letzte_abstimmung"))
+        return value
+
+    instrument(monkeypatch, transform)
+    sid = simulation(rounds=3)
+    drain()
+    with factory() as s:
+        sim = s.get(Simulation, sid)
+        ballots = s.scalars(
+            select(Event).where(Event.simulation_id == sid, Event.kind == "ballot").order_by(Event.id)
+        ).all()
+        assert [b.payload["konsens"] for b in ballots] == [False, True]
+        assert sim.round == 2 and sim.state["outcome"] == "konsens" and sim.status == "completed"
+    # The moderator's next proposal receives the wanted changes.
+    assert seen[0] is None
+    assert len(seen[1]["nachbesserungen"]) == 2 and "Finanzierung" in seen[1]["nachbesserungen"][0]["aenderung"]
+    assert seen[1]["ablehnungsgruende"] == []
+
+
+def test_requested_change_needs_no_red_line_and_ends_as_partial_result(simulation, drain, factory, monkeypatch):
+    def transform(task, ctx, value):
+        if task == "abstimmung":
+            value.update(stimme="nachbessern", begruendung="Mehr Mittel für den ländlichen Raum.")
+        return value
+
+    instrument(monkeypatch, transform)
+    sid = simulation(rounds=2)
+    drain()
+    with factory() as s:
+        sim = s.get(Simulation, sid)
+        assert sim.status == "awaiting_decision" and sim.state["outcome"] == "teilkompromiss" and sim.round == 2
+        assert all(v["stimme"] == "nachbessern" for v in sim.state["votes"].values())
+        closing = s.scalar(select(Event).where(Event.simulation_id == sid, Event.kind == "closing"))
+        assert len(closing.payload["nachbesserung"]) == 2 and closing.payload["ablehnung"] == []
+        # Other institutions see the wanted changes through the last ballot.
+        agent_call = next(
+            c
+            for c in s.scalars(select(Call).where(Call.simulation_id == sid, Call.role == "agent", Call.round == 2))
+            if json.loads(c.request["messages"][-1]["content"]).get("aufgabe") == "einzelphase"
+        )
+        assert json.loads(agent_call.request["messages"][-1]["content"])["letzte_abstimmung"]["nachbesserungen"]
+
+
+def test_request_without_concrete_change_becomes_abstention(simulation, drain, factory, monkeypatch):
+    def transform(task, ctx, value):
+        if task == "abstimmung":
+            value.update(stimme="nachbessern", begruendung="Passt nicht.")
+        if task == "statement_pruefen" and ctx["statement"].get("stimme") == "nachbessern":
+            value.update(bewertung=0, entscheidung="zurueckgewiesen", hinweis_an_agent="Konkrete Änderung nennen.")
+        return value
+
+    instrument(monkeypatch, transform)
+    sid = simulation(rounds=1)
+    drain()
+    with factory() as s:
+        sim = s.get(Simulation, sid)
+        assert all(v is None for v in sim.state["votes"].values())
+        assert sim.state["outcome"] == "teilkompromiss"
+
+
+def test_requested_change_and_rejection_can_coexist_for_different_reasons(simulation, drain, factory, monkeypatch):
+    def transform(task, ctx, value):
+        if task == "abstimmung":
+            value.update(stimme="nachbessern", begruendung="Konkrete Finanzierung nennen.")
+            if ctx["institution"] == "Ärztekammer":
+                value.update(stimme="ablehnen", verletzte_rote_linie="P1")
+        if task == "statement_pruefen" and ctx["statement"].get("stimme") == "ablehnen":
+            value["verletzte_rote_linie"] = "P1"
+        return value
+
+    instrument(monkeypatch, transform)
+    sid = simulation(rounds=1)
+    drain()
+    with factory() as s:
+        sim = s.get(Simulation, sid)
+        assert {v["stimme"] for v in sim.state["votes"].values()} == {"ablehnen", "nachbessern"}
+        assert sim.state["outcome"] == "teilkompromiss"

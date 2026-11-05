@@ -28,6 +28,7 @@ from .llm import MAX_OUTPUT_TOKENS, Gateway, parse_response
 from .models import Actor, Call, Command, Endpoint, Event, Job, Prompt, Setting, Simulation, User, db, now
 from .security import PublicError, cipher, local_check
 from .services import PHASE_LABELS, ROLES, create_simulation, enqueue, event, import_actors, latest_prompts, settings
+from .sources import statistics
 from .stakeholders import DEFAULT_SELECTION, has_icon, icon_directory, initials
 
 web = Blueprint("web", __name__)
@@ -129,6 +130,7 @@ def index():
     return render_template(
         "index.html",
         default_selection=DEFAULT_SELECTION,
+        sources=statistics(db.session),
         actors=db.session.scalars(select(Actor).order_by(Actor.name)).all(),
         simulations=db.session.scalars(select(Simulation).order_by(Simulation.created_at.desc())).all(),
     )
@@ -143,6 +145,7 @@ def admin():
         endpoints=db.session.scalars(select(Endpoint).order_by(Endpoint.name)).all(),
         system=settings(db.session),
         prompts=latest_prompts(db.session),
+        sources=statistics(db.session),
     )
 
 
@@ -256,7 +259,7 @@ def settings_save():
     if not 1 <= parallelism <= 16:
         raise PublicError("Parallelität muss zwischen 1 und 16 liegen.")
     roles = data.get("roles", {})
-    if not isinstance(roles, dict) or set(roles) - {"moderator", "orchestrator", "watcher"}:
+    if not isinstance(roles, dict) or set(roles) - {"recherche", "moderator", "orchestrator", "watcher"}:
         raise PublicError("Unbekannte Rollen.")
     for assignment in [data, *roles.values()]:
         if not isinstance(assignment, dict):

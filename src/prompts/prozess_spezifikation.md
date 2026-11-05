@@ -47,8 +47,8 @@ Bewertungsskala des Orchestrators pro Statement:
 6. **Gruppenphase:** Verhandlung im Gruppenkanal, jeder Agent mit höchstens `MAX_NACHRICHTEN` Nachrichten. Danach gibt jeder Agent ein **Einzelstatement** ab. Orchestrator prüft jedes Statement einzeln.
 7. Orchestrator leitet freigegebene Statements an den Moderator weiter.
 8. **Moderator** erstellt Sammelstand und **Kompromissvorschlag**.
-9. **Abstimmung:** Agents stimmen über den Orchestrator ab: `zustimmen` / `tolerieren` / `ablehnen`. Der Orchestrator prüft die Stimmen gegen die Statuten (eine Zustimmung, die eine rote Linie verletzt, oder eine Schein-Zustimmung zu einem Vorschlag ohne konkrete Regelung von Finanzierung, Entscheidungsbefugnis oder Frist wird zurückgewiesen).
-   - **Konsens** = keine gültige Ablehnung, keine Enthaltung und mindestens die Hälfte der Institutionen stimmt mit `zustimmen` (Tolerierungen allein genügen nicht) → Ergebnis → **Watcher-Bericht**.
+9. **Abstimmung:** Agents stimmen über den Orchestrator ab: `zustimmen` / `tolerieren` / `nachbessern` / `ablehnen`. `nachbessern` verlangt eine konkrete Änderung ohne verletzte rote Linie und führt zu einer weiteren Runde. Der Orchestrator prüft die Stimmen gegen die Statuten (eine Zustimmung, die eine rote Linie verletzt, oder eine Schein-Zustimmung zu einem Vorschlag ohne konkrete Regelung von Finanzierung, Entscheidungsbefugnis oder Frist wird zurückgewiesen).
+   - **Konsens** = keine gültige Ablehnung, keine Nachbesserung, keine Enthaltung und mindestens die Hälfte der Institutionen stimmt mit `zustimmen` (Tolerierungen allein genügen nicht) → Ergebnis → **Watcher-Bericht**.
 
 ### Runde 2 bis N
 1. Sammelstand + Kompromissvorschlag der Vorrunde gehen an alle Agents.
@@ -57,7 +57,7 @@ Bewertungsskala des Orchestrators pro Statement:
 4. Gruppenphase, Prüfung, Moderator, Abstimmung wie in Runde 1.
 
 ### Ende ohne Konsens nach N Runden
-- Ausgabe des **Teilkompromisses** inkl. Zustimmungen, Tolerierungen und dokumentierter Ablehnungen.
+- Ausgabe des **Teilkompromisses** inkl. Zustimmungen, Tolerierungen, Nachbesserungen und dokumentierter Ablehnungen.
 - Der **Watcher** legt seinen Abschlussbericht an den Operator vor.
 - Ein **Mensch/Operator** wählt:
   - **Fortsetzen mit Stand:** Teilkompromiss wird neuer Sammelstand, **Gruppen und Kanäle bleiben bestehen**, neuer Rundenblock bei Runde 1 mit vorhandenem Sammelstand. Der Watcher führt sein Protokoll weiter.
@@ -72,5 +72,6 @@ Bewertungsskala des Orchestrators pro Statement:
 - Reset bewahrt sämtliche alten Nachrichten, Prüfungen, Trajectories und Berichte im Archiv; neue Kontexte enthalten keine alten Nachrichten.
 - Eine Ablehnung ist gültig, wenn der Orchestrator eine verletzte rote Linie oder eine wesentlich beschädigte Priorität 1 oder 2 (`P1`, `P2`) der Institution benennt. Die Kennung bleibt intern, veröffentlicht wird nur die neutrale Begründung. Eine bestätigte Ablehnung kann nicht durch eine Enthaltung ersetzt werden.
 - Jeder Stakeholder erhält einen eigenen begrenzten Kontext statt des Gesamtverlaufs: eigener Verlauf, letzte Positionen der anderen, eigener Gruppenkanal, Sammelstand und letzte Abstimmung. Prüfrollen erhalten je Aufgabe nur die betroffenen Statuten. Der Watcher liest den Verlauf schrittweise. Die Gesamtdaten bleiben in Ereignissen und Aufrufprotokollen vollständig erhalten.
+- Vor Runde 1 erstellt eine Rechercherolle je Institution ein Briefing aus Pressespiegel und Rechtstexten: Volltextsuche, neuere Presse zählt mehr, höchstens 10 personenfreie Fakten mit Quellenkennung. Es bildet die DB-Infos dieser Institution, bleibt für den Lauf fix und ist für andere Agenten und den Moderator nicht sichtbar. Ohne geladene Quellen entfällt der Schritt.
 - Fachliche Limits erzwingt die Runtime. Über ungültige Steuerrollen-Ausgaben oder Providerfehler darf sie keinen Konsens erfinden.
 - Technische Aufrufprotokolle sind ein geschützter interner Bereich für ungeprüfte Rohdaten; reguläre Ansichten und Exporte enthalten ausschließlich geprüfte Beiträge.

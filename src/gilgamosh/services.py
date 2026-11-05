@@ -9,7 +9,7 @@ from .models import Actor, Endpoint, Event, Job, Prompt, Setting, Simulation, Us
 from .schemas import ActorInput
 from .security import PublicError, local_check
 
-ROLES = ("agent", "orchestrator", "moderator", "watcher")
+ROLES = ("agent", "orchestrator", "moderator", "watcher", "recherche")
 # ECB reference rate of 2026-11-05 (1 EUR = 1.1224 USD); editable in the administration.
 DEFAULTS = {
     "endpoint_id": None,
@@ -18,7 +18,7 @@ DEFAULTS = {
     "blocked_names": [],
     "eur_per_usd": 0.8909,
     # The watcher summarizes whole negotiations and needs the largest output budget.
-    "max_tokens": {"agent": 16000, "orchestrator": 16000, "moderator": 16000, "watcher": 32000},
+    "max_tokens": {"agent": 16000, "orchestrator": 16000, "moderator": 16000, "watcher": 32000, "recherche": 16000},
 }
 # Prompt texts shipped before seeds were recorded; an installation still on one of them is unmodified.
 FIRST_PROMPT_HASHES = {
@@ -30,6 +30,7 @@ FIRST_PROMPT_HASHES = {
 PHASE_LABELS = {
     "start": "Vorbereitung",
     "question": "Frage",
+    "research": "Recherche",
     "individual": "Einzelpositionen",
     "coalition": "Koalitionen",
     "groups": "Gruppenverhandlung",
@@ -88,7 +89,7 @@ def sync_prompts(session):
     for role in ROLES:
         text = (Path(__file__).parent / "prompts" / f"prompt_{role}.md").read_text()
         latest = prompts[role]
-        unmodified = latest and text_hash(latest.text) == seeds.get(role, FIRST_PROMPT_HASHES[role])
+        unmodified = latest and text_hash(latest.text) == seeds.get(role, FIRST_PROMPT_HASHES.get(role))
         if not latest or (unmodified and latest.text != text):
             session.add(Prompt(role=role, version=latest.version + 1 if latest else 1, text=text))
             seeds[role] = text_hash(text)
@@ -212,7 +213,7 @@ def create_simulation(session, data, app):
             **copy.deepcopy(actor.profile),
             "endpoint": endpoint_snapshot(session, actor.endpoint_id, actor.model, system, app),
         }
-    for role in ("moderator", "orchestrator", "watcher"):
+    for role in ("recherche", "moderator", "orchestrator", "watcher"):
         assignment = system.get("roles", {}).get(role, {})
         snap["roles"][role] = endpoint_snapshot(
             session, assignment.get("endpoint_id"), assignment.get("model", ""), system, app

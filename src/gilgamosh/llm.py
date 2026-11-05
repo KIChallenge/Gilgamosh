@@ -126,6 +126,13 @@ def fake_response(request, task):
     r = ctx.get("runde", 1)
     g = ctx.get("gruppe", "")
     results = {
+        "suchbegriffe": {"begriffe": ["Wartezeit", "Facharzt", "Kassenstelle"]},
+        "briefing": {
+            "fakten": [
+                {"quelle": hit["quelle_id"], "aussage": "Synthetische Demoaussage aus der Quelle."}
+                for hit in ctx.get("treffer", [])[:3]
+            ]
+        },
         "frage_stellen": {
             "frage": ctx.get("frage", ""),
             "kontext": "Demonstration mit synthetischen Institutionsprofilen.",
@@ -137,6 +144,7 @@ def fake_response(request, task):
             "begruendung": "Qualität, Zugänglichkeit und Budget müssen gemeinsam berücksichtigt werden.",
             "tragbar": None if r == 1 and not ctx.get("vorschlag") else True,
             "zugestaendnisse": [],
+            "quellen": [info["quelle_id"] for info in ctx.get("db_infos", []) if "quelle_id" in info][:2],
         },
         "koalitionsphase": {
             "agent": a,
@@ -158,6 +166,7 @@ def fake_response(request, task):
             "statement": "Regional begrenzte Pilotprojekte mit gemeinsamer Evaluierung.",
             "einigungen_in_gruppe": [],
             "zugestaendnisse": ["Zeitlich begrenzter Pilot statt sofortiger Gesamtlösung."],
+            "quellen": [],
         },
         "abstimmung": {
             "agent": a,
@@ -191,12 +200,15 @@ def fake_response(request, task):
             },
             "kompromissvorschlag": "Regionale Pilotprojekte für digitale Terminsteuerung mit Evaluation und Budgetkontrolle.",
             "begruendung": "Ein schrittweises Vorgehen verbindet Versorgung und Wirtschaftlichkeit.",
+            "offene_konflikte": [],
+            "zielbeitrag": "Demolauf: Beitrag zu den Vorgaben der Frage nicht belegt.",
         },
         "abschluss": {
             "status": ctx.get("ergebnis_status", "konsens"),
             "ergebnis": "Gemeinsame Pilotprojekte evaluieren.",
             "zustimmung": [],
             "tolerierung": ctx.get("institutionen", []),
+            "nachbesserung": [],
             "ablehnung": [],
             "offene_punkte": [],
             "empfehlung_neustart": "keiner",

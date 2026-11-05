@@ -121,7 +121,12 @@ def check_assignments(session, app, system, actor_ids=None):
         query = query.where(Actor.id.in_(actor_ids))
     actors = [a for a in session.scalars(query) if a.profile.get("selectable", True)]
     assignments = [(system.get("endpoint_id"), "", "Default")] if actor_ids is None else []
-    for role, label in (("moderator", "Moderator"), ("orchestrator", "Orchestrator"), ("watcher", "Watcher")):
+    for role, label in (
+        ("recherche", "Recherche"),
+        ("moderator", "Moderator"),
+        ("orchestrator", "Orchestrator"),
+        ("watcher", "Watcher"),
+    ):
         value = system.get("roles", {}).get(role, {})
         assignments.append((value.get("endpoint_id"), value.get("model", ""), label))
     assignments += [(a.endpoint_id, a.model, a.name) for a in actors]

@@ -14,6 +14,7 @@ from .models import Call, Endpoint, Event, Job, Simulation, now
 from .schemas import SCHEMAS
 from .security import INSTITUTION_RULE, ContentBlocked, InvalidOutput, PublicError, local_check
 from .services import enqueue, event
+from .sources import has_sources, search
 
 # Bounded per-role contexts: full data stays in events and calls, only prompts are compact.
 OWN_HISTORY_LIMIT = 9
@@ -21,6 +22,7 @@ BRIEF_DROP = {"agent", "members", "runde", "gruppe", "nachricht_nr"}
 POSITION_FIELDS = ("position", "statement", "begruendung", "zugestaendnisse", "einigungen_in_gruppe")
 CONTROL_KINDS = {"activity", "watcher", "report", "watcher_error", "status", "error"}
 REPORT_KINDS = {"question", "proposal", "ballot", "membership", "abstention", "group_review", "closing"}
+PRESS_HITS, LAW_HITS = 12, 5
 STATUTES_POINTER = "Die für diese Aufgabe relevanten Statuten stehen im Feld `institutionen_profile` des Aufrufs."
 
 
@@ -84,7 +86,11 @@ class Runtime:
     def name(self, actor):
         return self.actors.get(actor, {}).get("name", actor)
 
-    def statutes(self, scope=None):
+    def infos(self, actor):
+        """Prepared data of one institution: manual entries plus its own research briefing."""
+        return self.actors[actor]["db_infos"] + self.state.get("briefings", {}).get(actor, [])
+
+    def statutes(self, scope=None, with_infos=False):
         """Only the statutes a control role needs for this one task, never the prompts around them."""
         ids = self.actors if scope is None else scope
         return {
@@ -92,6 +98,7 @@ class Runtime:
                 "name": self.actors[k]["name"],
                 "rote_linien": self.actors[k]["rote_linien"],
                 "verhandelbar": self.actors[k]["verhandelbar"],
+                **({"db_infos": self.infos(k)} if with_infos else {}),
             }
             for k in ids
         }
@@ -155,6 +162,14 @@ class Runtime:
             "stimmen": {self.name(k): v for k, v in ballot.payload["stimmen"].items()},
             "konsens": ballot.payload["konsens"],
             "ablehnungsgruende": reasons,
+            "nachbesserungen": [
+                {"institution": self.name(e.actor), "aenderung": e.payload.get("begruendung", "")}
+                for e in events
+                if e.kind == "vote"
+                and e.round == ballot.round
+                and e.block == ballot.block
+                and e.payload.get("stimme") == "nachbessern"
+            ],
         }
 
     def agent_context(self, actor, group, events):
@@ -180,7 +195,7 @@ class Runtime:
         a = self.actors[actor]
         return {
             "institution": a["name"],
-            "db_infos": a["db_infos"],
+            "db_infos": self.infos(actor),
             "gruppe": group,
             "eigener_verlauf": self.history(public, actor),
             "positionen_anderer": [self.position(e) for e in latest.values()],
@@ -229,7 +244,7 @@ class Runtime:
                 )
             ]
             return {
-                "institutionen_profile": self.statutes(),
+                "institutionen_profile": self.statutes(with_infos=True),
                 "verlauf": [self.brief(e) for e in shown],
                 "positionsentwicklung": [
                     {"anfang": self.position(first[k]), "zuletzt": self.position(last[k])} for k in first
@@ -246,7 +261,7 @@ class Runtime:
             and e.payload.get("zurueckgewiesen", e.payload.get("pruefung", {}).get("bewertung") == 0)
         }
         return {
-            "institutionen_profile": self.statutes(sorted(a for a in rejected if a in self.actors)),
+            "institutionen_profile": self.statutes(sorted(a for a in rejected if a in self.actors), with_infos=True),
             "bisheriger_stand": previous["summary"] if previous else None,
             "verlauf": [self.brief(e) for e in fresh],
             "event_ids": [e.id for e in fresh],
@@ -272,8 +287,9 @@ class Runtime:
         elif role == "orchestrator":
             # Each check sees the statutes it judges against, not every negotiation so far.
             scope = [] if scope is None else scope
-            ctx["institutionen_profile"] = self.statutes(scope)
-            if task in {"statement_pruefen", "gruppe_pruefen"}:
+            checks = task in {"statement_pruefen", "gruppe_pruefen"}
+            ctx["institutionen_profile"] = self.statutes(scope, with_infos=checks)
+            if checks:
                 ctx["bisherige_positionen"] = {self.name(a): self.history(events, a) for a in scope}
         elif role == "watcher":
             ctx.update(self.watcher_context(task, events, ctx))
@@ -310,7 +326,8 @@ class Runtime:
                 "Bei einer bestätigten roten Linie nenne in verletzte_rote_linie deren exakte Kennung R1 usw. oder den Wortlaut; "
                 "bei einer wesentlich beschädigten Priorität 1 oder 2 nenne P1 oder P2. "
                 "Das angeforderte JSON-Schema und die übergebenen Limits haben Vorrang vor Beispielen. "
-                "Halte jedes Textfeld knapp: höchstens 120 Wörter."
+                "Halte jedes Textfeld knapp: höchstens 120 Wörter. "
+                "quellen enthält die quelle_id der db_infos, auf die sich der Beitrag stützt, sonst eine leere Liste."
             )
         )
 
@@ -493,6 +510,10 @@ class Runtime:
                 )
                 if value.get("agent") != self.actors[actor]["name"]:
                     raise InvalidOutput("Unzulässige Sprecheridentität.")
+                if "quellen" in value:
+                    # Only sources this institution actually received count as evidence.
+                    known = {info.get("quelle_id") for info in self.infos(actor)}
+                    value["quellen"] = [q for q in dict.fromkeys(value["quellen"]) if q in known]
                 if task == "einzelphase" and value["tragbar"] is None and self.state.get("proposal"):
                     raise InvalidOutput("Tragbarkeit fehlt.")
                 if task == "einzelphase" and not self.state.get("proposal") and value["tragbar"] is not None:
@@ -570,6 +591,55 @@ class Runtime:
             key=self.key(f"{suffix}:{actor}:abstention"),
         )
         return None
+
+    def research_available(self):
+        if "recherche" not in self.snap["prompts"] or "recherche" not in self.snap["roles"]:
+            return False  # simulations started before this step keep their original course
+        with self.factory() as s:
+            return has_sources(s)
+
+    def briefing(self, actor):
+        """Searches sources for one institution and condenses them into person-free, citable facts."""
+        a = self.actors[actor]
+        scope = {"institution": a["name"]}
+        try:
+            terms = self.call(
+                "recherche",
+                "suchbegriffe",
+                f"terms:{actor}",
+                extra={**scope, "themen": [p.get("position") for p in a["verhandelbar"]]},
+            )["begriffe"]
+            with self.factory() as s:
+                hits = search(s, terms + [a["name"]], "press", PRESS_HITS) + search(s, terms, "law", LAW_HITS)
+            facts = []
+            for attempt in range(2):
+                if not hits:
+                    break
+                result = self.call(
+                    "recherche", "briefing", f"briefing:{actor}:{attempt}", extra={**scope, "treffer": hits}
+                )
+                known = {hit["quelle_id"]: hit for hit in hits}
+                facts = [
+                    {
+                        "quelle_id": fact["quelle"],
+                        "art": known[fact["quelle"]]["art"],
+                        "zitat": known[fact["quelle"]]["zitat"],
+                        "datum": known[fact["quelle"]]["datum"],
+                        "aussage": fact["aussage"],
+                    }
+                    for fact in result["fakten"]
+                    if fact["quelle"] in known
+                ]
+                try:
+                    self.safety({"fakten": facts}, f"briefing:{actor}:{attempt}:safe", actor=actor, scope=[actor])
+                    break
+                except ContentBlocked:
+                    facts = []  # personal references must not reach the negotiation
+        except InvalidOutput:
+            # Without a briefing the institution negotiates without sources; the run stays honest about it.
+            facts = []
+        self.state.setdefault("briefings", {})[actor] = facts
+        self.emit("briefing", {"institution": a["name"], "fakten": facts}, actor, key=self.key(f"briefing:{actor}"))
 
     def parallel(self, fn):
         ids = list(self.actors)
@@ -724,6 +794,7 @@ class Runtime:
         next_phase = {
             "start": "question",
             "question": "individual",
+            "research": "individual",
             "individual": "coalition",
             "coalition": "groups",
             "groups": "proposal",
@@ -749,6 +820,10 @@ class Runtime:
             value = self.checked_role("moderator", "frage_stellen", "question")
             self.state["question"] = value
             self.emit("question", value, key=self.key("question"))
+            if self.research_available():
+                next_phase = "research"
+        elif phase == "research":
+            self.parallel(self.briefing)
         elif phase == "individual":
             self.parallel(lambda a: self.approved("einzelphase", a, "position"))
         elif phase == "coalition":
@@ -762,13 +837,13 @@ class Runtime:
         elif phase == "vote":
             votes = self.parallel(lambda a: self.approved("abstimmung", a, "vote"))
             self.state["votes"] = votes
-            # Consensus needs no valid rejection, no abstention and real support: an institution whose
-            # vote was blocked repeatedly has not consented, and toleration alone does not carry a decision.
+            # Consensus needs no valid rejection, no requested change, no abstention and real support: an
+            # institution whose vote was blocked has not consented, and toleration alone carries no decision.
             cast = [v["stimme"] for v in votes.values() if v]
             supporting = sum(stimme in {"zustimmen", "tolerieren"} for stimme in cast)
             approving = cast.count("zustimmen")
             abstaining = len(votes) - len(cast)
-            consensus = "ablehnen" not in cast and abstaining == 0 and approving * 2 >= len(votes)
+            consensus = not {"ablehnen", "nachbessern"} & set(cast) and abstaining == 0 and approving * 2 >= len(votes)
             self.state["outcome"] = "konsens" if consensus else "teilkompromiss"
             self.emit(
                 "ballot",
@@ -792,6 +867,11 @@ class Runtime:
             value["tolerierung"] = [
                 self.actors[k]["name"] for k, v in votes.items() if v and v["stimme"] == "tolerieren"
             ]
+            value["nachbesserung"] = [
+                {"agent": self.actors[k]["name"], "grund": v["begruendung"]}
+                for k, v in votes.items()
+                if v and v["stimme"] == "nachbessern"
+            ]
             value["ablehnung"] = [
                 {"agent": self.actors[k]["name"], "grund": v["begruendung"]}
                 for k, v in votes.items()
@@ -805,7 +885,7 @@ class Runtime:
             if phase == "vote" and next_phase == "individual":
                 sim.round += 1
             job.status, job.token = "done", ""
-            if phase not in {"start", "closing"}:
+            if phase not in {"start", "closing", "research"}:
                 # Coalesce pending observations; already running snapshots remain independently versioned.
                 for old in s.scalars(
                     select(Job).where(Job.simulation_id == sim.id, Job.kind == "watcher", Job.status == "queued")

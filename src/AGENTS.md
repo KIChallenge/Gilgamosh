@@ -88,7 +88,7 @@ Kriterien kombinieren:
 
 Die nachfolgenden Entscheidungen gehen den späteren Presse-Pipeline-Anforderungen für V1 vor:
 Flask mit Jinja/Tailwind/DaisyUI, PostgreSQL/SQLAlchemy/Alembic und separater Python-Worker.
-V1 verwendet vorbereitete DB-Infos ohne Recherchetools, SQL-Tools, RAG oder Presse-Ingest.
+V1 lädt Pressespiegel und Rechtstexte in die Tabelle `source` und erstellt beim Start je Institution ein Briefing per Volltextsuche; keine Recherchetools für Agenten, kein SQL-Zugriff, keine Vektorsuche. Die getrennten Schemas und Datenbankrollen oben sind für V1 nicht umgesetzt.
 Default N = 6 Runden insgesamt pro Block. Alle Akteure handeln ausschließlich institutionell;
 keine Einzelpersonen, Personennamen oder Personenzitate in veröffentlichten Inhalten.
 Watcher-Zwischenstände nur für die Bedienoberfläche, keine Rückkopplung in die Verhandlung.
