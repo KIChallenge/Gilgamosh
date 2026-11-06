@@ -56,8 +56,9 @@
       <div class="flex gap-2 border-b border-slate-200 px-4" role="tablist">
         <button class="view-tab view-tab-active" data-view="overview" role="tab">Überblick</button>
         <button class="view-tab" data-view="flow" role="tab">Verlauf</button>
+        <button class="view-tab" data-view="review" role="tab">Analyse</button>
         <button class="view-tab" data-view="groups" role="tab">Gruppen</button>
-        <button class="view-tab" data-view="analysis" role="tab">Auswertung</button>
+        <button class="view-tab" data-view="analysis" role="tab">Resultate</button>
       </div>
 
       <div id="overview" class="space-y-6 p-4 lg:p-5" data-view-panel>
@@ -89,6 +90,8 @@
         <p class="muted mb-4">Das Diagramm wächst mit der Verhandlung. Ein Klick auf einen Schritt zeigt seine Inhalte.</p>
         <div id="flow"></div>
       </div>
+
+      <div id="review" class="hidden space-y-6 p-4 lg:p-5" data-view-panel></div>
 
       <div id="groups" class="hidden space-y-5 p-4 lg:p-5" data-view-panel></div>
 

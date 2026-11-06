@@ -30,6 +30,10 @@ def test_live_simulation_to_export(app, monkeypatch):
             time.sleep(0.2)
             response = original(self, config, request, task)
             context = json.loads(request["messages"][-1]["content"])
+            if task == "abstimmung" and context["institution"] == "Ärztekammer" and context["runde"] == 1:
+                value = json.loads(response["choices"][0]["message"]["content"])
+                value.update(stimme="nachbessern", begruendung="Die Finanzierung muss konkret benannt werden.")
+                response["choices"][0]["message"]["content"] = json.dumps(value, ensure_ascii=False)
             if task == "koalitionsphase" and context["institution"] == "Ärztekammer":
                 value = json.loads(response["choices"][0]["message"]["content"])
                 value.update(aktion="gruenden", partner=["finanzministerium"])
@@ -166,21 +170,34 @@ def test_live_simulation_to_export(app, monkeypatch):
             page.screenshot(path="test-results/flow-open.png", full_page=True)
             page.locator('[data-flow="1:1:vote"]').click()
             expect(page.locator(".flow-panel")).to_have_count(1)
+            # The review is computed from stored events and shows change over the rounds.
+            page.get_by_role("tab", name="Analyse", exact=True).click()
+            review = page.locator("#review")
+            expect(review.get_by_role("heading", name="Zeitstrahl der Gruppen")).to_be_visible()
+            expect(review.get_by_role("heading", name="Zeitstrahl der Positionen")).to_be_visible()
+            expect(review.locator(".vote-part")).not_to_have_count(0)
+            expect(review.locator(".group-band").first).to_be_visible()
+            # A group re-forming with the same members stays the same coalition in every round.
+            assert review.locator(".group-band").all_inner_texts() == ["G1"] * 4
+            expect(review).to_contain_text("Nachbesserung → Zustimmung")
+            page.wait_for_timeout(300)
+            page.screenshot(path="test-results/review.png", full_page=True)
+            page.get_by_role("tab", name="Verlauf", exact=True).click()
             # The back button returns to the previously open tab.
-            page.get_by_role("tab", name="Auswertung", exact=True).click()
+            page.get_by_role("tab", name="Resultate", exact=True).click()
             expect(page.locator("#analysis")).to_be_visible()
             page.go_back()
             expect(page.locator("#flow-view")).to_be_visible()
             page.go_back()
-            expect(page.locator("#overview")).to_be_visible()
+            expect(page.locator("#review")).to_be_visible()
             page.go_forward()
             expect(page.locator("#flow-view")).to_be_visible()
             # A marker in the timeline opens its step in the flow diagram.
-            page.go_back()
+            page.get_by_role("tab", name="Überblick", exact=True).click()
             page.locator("#timeline .marker-yes").first.click()
             expect(page.locator("#flow-view")).to_be_visible()
             expect(page.locator(".flow-panel .flow-item").first).to_be_visible()
-            page.get_by_role("tab", name="Auswertung", exact=True).click()
+            page.get_by_role("tab", name="Resultate", exact=True).click()
             expect(page.locator("#reports")).to_contain_text("Watcher-Bericht", timeout=45000)
             with page.expect_download() as result:
                 page.get_by_role("link", name="Markdown exportieren").click()

@@ -113,11 +113,16 @@
   const cssVar = name => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
   const onColor = color => ['#eda100', '#c98500'].includes(color) ? '#0b0b0b' : '#ffffff';
   function coalitions() {
+    // Group ids change when a group re-forms, so identity follows the members: same members, same coalition.
     const registry = new Map();
+    const byMembers = new Map();
     const add = (id, members) => {
       if (members.length < 2 || registry.has(id)) return;
-      const index = registry.size;
-      registry.set(id, {id, label: `G${index + 1}`, color: COALITION_COLORS[isDark() ? 'dark' : 'light'][index] || '#64748b'});
+      const key = [...members].sort().join('|');
+      if (byMembers.has(key)) {registry.set(id, byMembers.get(key)); return;}
+      const index = byMembers.size;
+      byMembers.set(key, {id, label: `G${index + 1}`, color: COALITION_COLORS[isDark() ? 'dark' : 'light'][index] || '#64748b'});
+      registry.set(id, byMembers.get(key));
     };
     for (const e of state.events) if (e.kind === 'membership') for (const [id, members] of Object.entries(e.payload.gruppen)) add(id, members);
     for (const [id, members] of Object.entries(state.groups)) add(id, members);
@@ -785,14 +790,15 @@
     coalitionsKey = coalitionKey;
     const box = clear('#coalitions');
     const registry = coalitions();
-    const active = [...registry.values()].filter(info => state.groups[info.id]);
+    const active = Object.keys(state.groups).filter(id => registry.has(id));
     if (!active.length) box.append(node('p', 'Alle Institutionen verhandeln einzeln.', 'muted'));
-    for (const info of active) {
+    for (const id of active) {
+      const info = registry.get(id);
       const group = coalitionBox(info, 'space-y-1.5');
       const head = node('div', '', 'flex items-center gap-2 text-sm font-semibold text-slate-800');
       head.append(coalitionChip(info, 'scale-90'), node('span', `Koalition ${info.label}`));
       group.append(head);
-      for (const code of state.groups[info.id]) {
+      for (const code of state.groups[id]) {
         const member = node('div', '', 'flex items-center gap-2');
         member.append(actorIcon(code, 'inst-icon-sm'), node('span', institution(code), 'text-slate-700'));
         group.append(member);
@@ -915,6 +921,276 @@
     } catch (exc) {notify(exc.message);}
   }
 
+  /* ---------- Review ---------- */
+  // Everything here is derived from stored events, so it works for finished runs and grows during live ones.
+  let reviewKey = '';
+
+  function reviewSection(parent, title, note) {
+    const section = node('section', '', 'border-t border-slate-100 pt-5 first:border-0 first:pt-0');
+    section.append(node('h2', title, 'panel-title'));
+    if (note) section.append(node('p', note, 'muted mb-3'));
+    parent.append(section);
+    return section;
+  }
+
+  function reviewRounds() {
+    const rounds = new Map();
+    for (const e of state.events) {
+      if (['statement', 'vote', 'abstention', 'ballot', 'membership', 'proposal'].includes(e.kind) && e.phase !== 'research') {
+        rounds.set(`${e.block}:${e.round}`, {block: e.block, round: e.round});
+      }
+    }
+    return [...rounds.values()];
+  }
+  const roundLabel = r => `${r.block > 1 ? `B${r.block} · ` : ''}Runde ${r.round}`;
+  const inRound = (e, r) => e.block === r.block && e.round === r.round;
+
+  function rowHead(code) {
+    const head = node('th', '', 'tl-row-head'); head.scope = 'row';
+    const line = node('span', '', 'flex items-center gap-2 font-medium text-slate-800');
+    line.append(actorIcon(code, 'inst-icon-sm'), node('span', institution(code), 'truncate'));
+    head.append(line);
+    return head;
+  }
+
+  function gridHead(table, rounds, first = 'Institution') {
+    const head = node('thead');
+    const row = node('tr');
+    row.append(node('th', first, 'tl-row-head'));
+    for (const r of rounds) row.append(node('th', roundLabel(r)));
+    head.append(row);
+    table.append(head);
+  }
+
+  function rankedBars(parent, rows, format, emptyText) {
+    if (!rows.length) {parent.append(node('p', emptyText, 'muted')); return;}
+    const top = Math.max(...rows.map(row => row.value));
+    const list = node('div', '', 'space-y-2');
+    for (const row of rows) {
+      const line = node('div', '', 'grid grid-cols-[minmax(9rem,14rem)_1fr] items-center gap-3 text-sm');
+      line.append(node('span', row.label, 'truncate text-slate-700'));
+      const track = node('div', '', 'flex items-center gap-2');
+      const bar = node('span', '', 'review-bar');
+      bar.style.width = `${Math.max(2, row.value / top * 85)}%`;
+      if (row.hint) bar.dataset.hint = row.hint;
+      track.append(bar, node('span', format(row.value), 'whitespace-nowrap text-xs font-medium tabular-nums text-slate-700'));
+      line.append(track);
+      list.append(line);
+    }
+    parent.append(list);
+  }
+
+  function renderReview() {
+    const key = JSON.stringify([state.events.length, state.run, Object.values(state.actors).map(a => a.name), isDark()]);
+    if (key === reviewKey) return;
+    reviewKey = key;
+    const box = clear('#review');
+    const rounds = reviewRounds();
+    const codes = Object.keys(state.actors);
+    const statements = state.events.filter(e => e.kind === 'statement');
+    if (!rounds.length) {box.append(node('p', 'Die Analyse erscheint, sobald die ersten Beiträge vorliegen.', 'muted')); return;}
+
+    const ballots = state.events.filter(e => e.kind === 'ballot');
+    const registry = coalitions();
+    const sources = sourceIndex();
+    const concessions = {};
+    for (const e of statements) concessions[e.actor] = (concessions[e.actor] || 0) + (e.payload.zugestaendnisse?.length || 0);
+    const voteTrail = {};
+    for (const code of codes) {
+      voteTrail[code] = ballots.map(b => ({r: b, stimme: b.payload.stimmen[code]})).filter(v => v.stimme);
+    }
+    const changes = codes.flatMap(code => voteTrail[code].slice(1).flatMap((v, i) => {
+      const before = voteTrail[code][i].stimme;
+      return before === v.stimme ? [] : [{code, from: before, to: v.stimme, r: v.r}];
+    }));
+    const cited = statements.filter(e => e.payload.quellen?.some(id => sources.has(id)));
+    const totalConcessions = Object.values(concessions).reduce((a, b) => a + b, 0);
+
+    const tiles = node('div', '', 'grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6');
+    const lastBallot = ballots.at(-1);
+    for (const [label, value] of [
+      ['Runden', rounds.length],
+      ['Koalitionen', new Set(registry.values()).size],
+      ['Zugeständnisse', totalConcessions],
+      ['Stimmwechsel', changes.length],
+      ['Beiträge mit Quelle', statements.length ? `${Math.round(cited.length / statements.length * 100)} %` : '–'],
+      ['Ergebnis', lastBallot ? (lastBallot.payload.konsens ? 'Konsens' : 'Kein Konsens') : 'Offen']
+    ]) {
+      const tile = node('div', '', 'kpi');
+      tile.append(node('span', label, 'kpi-label'), node('span', String(value), 'kpi-value'));
+      tiles.append(tile);
+    }
+    box.append(tiles);
+
+    /* Votes per round, as parts of a whole on one scale. */
+    const votes = reviewSection(box, 'Stimmen je Runde', 'Wie sich die Zustimmung von Runde zu Runde entwickelt hat.');
+    if (!ballots.length) votes.append(node('p', 'Noch keine Abstimmung.', 'muted'));
+    else {
+      const legend = node('div', '', 'mb-3 flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-600');
+      for (const v of Object.values(VOTES)) {
+        const item = node('span', '', 'inline-flex items-center gap-1.5');
+        const swatch = node('span', '', 'swatch'); swatch.style.backgroundColor = cssVar(`--vote-${v.color}`);
+        item.append(swatch, node('span', v.label));
+        legend.append(item);
+      }
+      votes.append(legend);
+      const list = node('div', '', 'space-y-2');
+      for (const ballot of ballots) {
+        const counts = {};
+        for (const stimme of Object.values(ballot.payload.stimmen)) counts[stimme] = (counts[stimme] || 0) + 1;
+        const total = Object.values(counts).reduce((a, b) => a + b, 0);
+        const row = node('div', '', 'grid grid-cols-[5.5rem_1fr_6.5rem] items-center gap-3 text-sm');
+        row.append(node('span', roundLabel(ballot), 'text-slate-700'));
+        const bar = node('div', '', 'flex h-7 gap-0.5');
+        for (const [name, v] of Object.entries(VOTES)) {
+          if (!counts[name]) continue;
+          const part = node('button', '', 'vote-part');
+          part.type = 'button';
+          part.style.flexGrow = counts[name];
+          part.style.flexBasis = '0';
+          part.style.backgroundColor = cssVar(`--vote-${v.color}`);
+          part.style.color = onColor(cssVar(`--vote-${v.color}`));
+          part.textContent = counts[name] / total >= 0.08 ? String(counts[name]) : '';
+          const who = Object.entries(ballot.payload.stimmen).filter(([, s]) => s === name).map(([c]) => institution(c)).join(', ');
+          part.dataset.hint = `${v.label} (${counts[name]}): ${who}`;
+          part.dataset.event = ballot.id;
+          bar.append(part);
+        }
+        row.append(bar, node('span', ballot.payload.konsens ? 'Konsens' : 'Kein Konsens', 'text-xs font-medium text-slate-600'));
+        list.append(row);
+      }
+      votes.append(list);
+    }
+
+    /* Group membership over time. */
+    const groups = reviewSection(box, 'Zeitstrahl der Gruppen', 'Wer in welcher Runde mit wem verhandelt hat. Gleiche Farbe und gleiches Kürzel bedeuten dieselbe Koalition.');
+    if (!registry.size) groups.append(node('p', 'In diesem Lauf hat sich keine Koalition gebildet.', 'muted'));
+    else {
+      const scroll = node('div', '', 'overflow-x-auto');
+      const table = node('table', '', 'tl-table');
+      gridHead(table, rounds);
+      const body = node('tbody');
+      const groupAt = (code, r) => {
+        const membership = state.events.filter(e => e.kind === 'membership' && inRound(e, r)).at(-1);
+        return membership ? Object.entries(membership.payload.gruppen).find(([id, members]) => members.length > 1 && members.includes(code))?.[0] : undefined;
+      };
+      const firstGroup = code => {
+        for (const r of rounds) {const id = groupAt(code, r); if (id) return [...new Set(registry.values())].indexOf(registry.get(id));}
+        return Infinity;
+      };
+      for (const code of [...codes].sort((a, b) => firstGroup(a) - firstGroup(b))) {
+        const row = node('tr');
+        row.append(rowHead(code));
+        for (const r of rounds) {
+          const td = node('td', '', 'min-w-24 !px-0');
+          const groupId = groupAt(code, r);
+          const info = registry.get(groupId);
+          if (info) {
+            const band = node('span', info.label, 'group-band');
+            band.style.backgroundColor = info.color;
+            band.style.color = onColor(info.color);
+            const members = state.events.filter(e => e.kind === 'membership' && inRound(e, r)).at(-1).payload.gruppen[groupId];
+            band.dataset.hint = `Koalition ${info.label}: ${members.map(institution).join(', ')}`;
+            td.append(band);
+          } else td.append(node('span', '', 'group-band-none'));
+          row.append(td);
+        }
+        body.append(row);
+      }
+      table.append(body);
+      scroll.append(table);
+      groups.append(scroll);
+    }
+
+    /* Positions over time. */
+    const positions = reviewSection(box, 'Zeitstrahl der Positionen', 'Letzte Position je Runde mit Stimme und Zugeständnissen. Ein Klick führt zum Beitrag.');
+    const scroll = node('div', '', 'overflow-x-auto');
+    const table = node('table', '', 'tl-table');
+    gridHead(table, rounds);
+    const body = node('tbody');
+    for (const code of codes) {
+      const row = node('tr');
+      row.append(rowHead(code));
+      for (const r of rounds) {
+        const td = node('td', '', 'min-w-64 max-w-80 !text-left align-top');
+        const own = statements.filter(e => e.actor === code && inRound(e, r)).at(-1);
+        const vote = state.events.find(e => e.actor === code && e.kind === 'vote' && inRound(e, r));
+        const abstain = state.events.find(e => e.actor === code && e.kind === 'abstention' && e.phase === 'vote' && inRound(e, r));
+        const head = node('div', '', 'mb-1 flex items-center gap-1.5');
+        const v = vote ? VOTES[vote.payload.stimme] : abstain ? VOTES.enthaltung : null;
+        if (v) head.append(marker(`${v.cls} scale-75`, v.glyph, `${v.label}: ${shorten(vote?.payload.begruendung || abstain?.payload.grund || '')}`, (vote || abstain).id));
+        const count = own?.payload.zugestaendnisse?.length;
+        if (count) head.append(node('span', `+${count} Zugeständnis${count === 1 ? '' : 'se'}`, 'pill pill-neutral'));
+        if (own?.payload.quellen?.length) head.append(node('span', `${own.payload.quellen.length} Quellen`, 'pill pill-neutral'));
+        if (head.children.length) td.append(head);
+        if (own) {
+          const text = node('button', shorten(textOf(own.payload), 170), 'text-left text-xs leading-relaxed text-slate-700 hover:text-teal-800');
+          text.type = 'button'; text.dataset.event = own.id;
+          text.dataset.hint = shorten(textOf(own.payload), 500);
+          td.append(text);
+        } else if (!v) td.append(node('span', '–', 'text-xs text-slate-400'));
+        row.append(td);
+      }
+      body.append(row);
+    }
+    table.append(body);
+    scroll.append(table);
+    positions.append(scroll);
+
+    /* Vote changes as a plain list: they are the moments that moved something. */
+    const moved = reviewSection(box, 'Stimmwechsel', 'Institutionen, die ihre Stimme zwischen zwei Abstimmungen geändert haben.');
+    if (!changes.length) moved.append(node('p', ballots.length > 1 ? 'Keine Institution hat ihre Stimme geändert.' : 'Ein Wechsel lässt sich erst ab zwei Abstimmungen erkennen.', 'muted'));
+    else {
+      const list = node('ul', '', 'space-y-1.5 text-sm');
+      for (const change of changes) {
+        const item = node('li', '', 'flex flex-wrap items-center gap-2 text-slate-700');
+        const from = VOTES[change.from], to = VOTES[change.to];
+        item.append(actorIcon(change.code, 'inst-icon-sm'), node('span', institution(change.code), 'font-medium'), node('span', `${from.label} → ${to.label}`), node('span', roundLabel(change.r), 'text-xs text-slate-500'));
+        list.append(item);
+      }
+      moved.append(list);
+    }
+
+    /* Ranked comparisons. */
+    const ranked = node('div', '', 'grid gap-6 border-t border-slate-100 pt-5 lg:grid-cols-2');
+    const conc = node('section');
+    conc.append(node('h2', 'Zugeständnisse je Institution', 'panel-title'), node('p', 'Anzahl der genannten Zugeständnisse im gesamten Lauf.', 'muted mb-3'));
+    rankedBars(conc, codes.map(code => ({label: institution(code), value: concessions[code] || 0})).filter(row => row.value).sort((a, b) => b.value - a.value), String, 'Noch keine Zugeständnisse.');
+    const src = node('section');
+    src.append(node('h2', 'Quellennutzung je Institution', 'panel-title'), node('p', 'Beiträge, die sich auf mindestens eine erhaltene Quelle stützen.', 'muted mb-3'));
+    rankedBars(src, codes.map(code => {
+      const own = statements.filter(e => e.actor === code);
+      const backed = own.filter(e => e.payload.quellen?.some(id => sources.has(id))).length;
+      return {label: institution(code), value: backed, hint: `${backed} von ${own.length} Beiträgen`};
+    }).filter(row => row.value).sort((a, b) => b.value - a.value), value => `${value} Beiträge`, 'Noch keine Beiträge mit Quelle.');
+    ranked.append(conc, src);
+    box.append(ranked);
+
+    /* Sources and conflicts. */
+    const uses = new Map();
+    for (const e of statements) {
+      for (const id of new Set(e.payload.quellen || [])) {
+        if (!sources.has(id)) continue;
+        const entry = uses.get(id) || {fact: sources.get(id), count: 0, who: new Set()};
+        entry.count++; entry.who.add(e.actor);
+        uses.set(id, entry);
+      }
+    }
+    const lower = node('div', '', 'grid gap-6 border-t border-slate-100 pt-5 lg:grid-cols-2');
+    const top = node('section');
+    top.append(node('h2', 'Meistgenutzte Quellen', 'panel-title'), node('p', 'Häufigste Fundstellen in den Beiträgen.', 'muted mb-3'));
+    rankedBars(top, [...uses.values()].sort((a, b) => b.count - a.count).slice(0, 8).map(entry => ({label: entry.fact.zitat, value: entry.count, hint: `${entry.fact.aussage} · genutzt von: ${[...entry.who].map(institution).join(', ')}`})), value => `${value}×`, 'Noch keine Quelle genutzt.');
+    const conflicts = node('section');
+    conflicts.append(node('h2', 'Streitpunkte je Runde', 'panel-title'), node('p', 'Vom Moderator genannte Streitpunkte und nicht entschiedene Konflikte.', 'muted mb-3'));
+    const proposals = state.events.filter(e => e.kind === 'proposal');
+    rankedBars(conflicts, proposals.map(e => {
+      const items = [...(e.payload.sammelstand?.streitpunkte || []).map(s => s.thema), ...(e.payload.offene_konflikte || [])];
+      return {label: roundLabel(e), value: items.length, hint: items.join(' · ')};
+    }).filter(row => row.value), String, 'Keine Streitpunkte genannt.');
+    lower.append(top, conflicts);
+    box.append(lower);
+  }
+
   /* ---------- Render loop ---------- */
   function render() {
     renderHeader();
@@ -929,6 +1205,7 @@
     renderSide();
     if (selected === 'analysis') renderAnalysis();
     if (selected === 'groups') renderGroups();
+    if (selected === 'review') renderReview();
   }
 
   async function refresh() {
@@ -949,7 +1226,7 @@
     timer = setTimeout(() => {timer = null; refresh();}, 700);
   }
 
-  const VIEWS = ['overview', 'flow', 'groups', 'analysis'];
+  const VIEWS = ['overview', 'flow', 'review', 'groups', 'analysis'];
   function selectView(view, remember = true) {
     // Every tab change is a history entry, so the back button returns to the previous tab.
     if (remember && view !== selected) history.pushState(null, '', `#${view}`);
@@ -962,6 +1239,7 @@
     if (view === 'analysis') {analysisKey = ''; renderAnalysis();}
     if (view === 'groups') renderGroups();
     if (view === 'flow' && state) {refreshGroupEvents(); renderFlow(true);}
+    if (view === 'review' && state) renderReview();
     if (view === 'overview') for (const chart of Object.values(charts)) chart.resize();
   }
   const viewFromUrl = () => VIEWS.includes(location.hash.slice(1)) ? location.hash.slice(1) : 'overview';
