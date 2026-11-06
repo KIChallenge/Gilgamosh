@@ -349,3 +349,11 @@ def test_profile_form_shows_only_the_simplified_fields(client):
     # Statutes are editable as plain lines, not as JSON.
     assert "R1: " in form and "data-json" not in form and "[&#34;" not in form
     assert 'value="bundeslaender"' not in page.split("Institutionen importieren")[0]
+
+
+def test_the_interface_shows_the_product_name(app, client):
+    login = app.test_client().get("/login").text
+    assert "RoundTable" in login and "Gilgamosh" not in login
+    for path in ("/", "/admin"):
+        page = client.get(path).text
+        assert "RoundTable" in page and "Gilgamosh" not in page

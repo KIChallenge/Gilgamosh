@@ -1,4 +1,4 @@
-# Gilgamosh
+# RoundTable
 
 Webbasierter Prototyp für institutionelle Verhandlungen im österreichischen Gesundheitswesen. Flask, Tailwind/DaisyUI, PostgreSQL/SQLAlchemy, separater Worker und OpenRouter.
 

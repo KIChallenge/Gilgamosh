@@ -3,7 +3,7 @@ import os
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Gilgamosh")
+    parser = argparse.ArgumentParser(description="RoundTable")
     parser.add_argument("command", choices=["web", "worker", "init", "seed", "ingest"])
     parser.add_argument("path", nargs="?", help="ingest: Ordner mit Pressespiegel-Ordnern und Rechtstexte")
     parser.add_argument("--once", action="store_true")

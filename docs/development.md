@@ -1,5 +1,7 @@
 # Prototyp betreiben
 
+Die Anwendung heißt RoundTable. Technische Bezeichner wie das Python-Paket und der Befehl `gilgamosh`, die Datenbank und das Docker-Volume tragen weiterhin den früheren Namen, damit bestehende Daten und Abläufe unverändert funktionieren.
+
 ## Schnellstart mit Docker Compose
 
 ```bash

@@ -1,7 +1,7 @@
 {% extends 'base.html' %}{% block content %}
 <div class="panel panel-body mx-auto mt-16 max-w-md">
-  <img class="app-logo mx-auto mb-5 w-56" src="{{ url_for('static', filename='logo.png') }}" alt="Gilgamosh">
-  <p class="eyebrow mb-2">Institutionelle Verhandlungssimulation</p>
+  <img class="app-logo mx-auto mb-5 w-56" src="{{ url_for('static', filename='logo.png') }}" alt="">
+  <p class="eyebrow mb-2">RoundTable · Institutionelle Verhandlungssimulation</p>
   <h1 class="mb-6 text-2xl font-semibold text-slate-900">Anmelden</h1>
   {% if error %}<p class="notice notice-bad mb-4" role="alert">{{ error }}</p>{% endif %}
   <form method="post" class="space-y-4">
